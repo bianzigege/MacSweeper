@@ -13,7 +13,7 @@ struct ContentView: View {
             switch model.phase {
             case .idle: emptyState
             case .scanning: busy("正在扫描，大约需要半分钟…")
-            case .cleaning: busy("正在移到废纸篓…")
+            case .cleaning: busy(model.busyText)
             case .ready: resultList
             }
             if model.phase == .ready {
@@ -83,7 +83,12 @@ struct ContentView: View {
 
     private var resultList: some View {
         List {
+            if let notice = model.notice {
+                Label(notice, systemImage: "exclamationmark.triangle.fill")
+                    .font(.callout).foregroundStyle(.orange).padding(.vertical, 6)
+            }
             if let report = model.lastReport { reportBanner(report) }
+            if !model.appsToReopen.isEmpty { reopenBanner }
             if model.needsFullDiskAccess { permissionBanner }
             section(.safe, title: "可放心清理", icon: "checkmark.seal.fill", color: .green)
             section(.review, title: "需确认", icon: "exclamationmark.triangle.fill", color: .orange)
@@ -138,6 +143,19 @@ struct ContentView: View {
             if !report.failures.isEmpty {
                 Text("有 \(report.failures.count) 个项目没能移动（通常是正在被使用），可以退出相关 App 后再试。")
                     .font(.callout).foregroundStyle(.orange)
+            }
+        }
+        .padding(.vertical, 6)
+    }
+
+    /// 只退出、还没重新打开的 App
+    private var reopenBanner: some View {
+        HStack {
+            Label("这些 App 是 MacSweeper 帮你退出的，清理完可以重新打开", systemImage: "arrow.uturn.backward.circle")
+                .font(.callout)
+            Spacer()
+            ForEach(model.appsToReopen, id: \.self) { url in
+                Button("重新打开 \(FileManager.default.displayName(atPath: url.path))") { model.reopen([url]) }
             }
         }
         .padding(.vertical, 6)
@@ -202,6 +220,34 @@ struct RuleRow: View {
 
     private static let previewCount = 8
     private var cleanable: Bool { model.isCleanable(result) }
+    @State private var confirmQuit = false
+    @State private var quitThenClean = false
+
+    /// App 正在运行时的按钮：可放心清理的一步到位；需确认的只退出，让你自己挑
+    private func quitButtons(_ app: String) -> some View {
+        HStack(spacing: 8) {
+            Label("\(app)正在运行", systemImage: "lock.fill")
+                .font(.caption).foregroundStyle(.orange)
+            if result.rule.safety == .safe {
+                Button("退出\(app)并清理") { quitThenClean = true; confirmQuit = true }
+                    .buttonStyle(.borderedProminent).controlSize(.small)
+            } else {
+                Button("退出\(app)") { quitThenClean = false; confirmQuit = true }
+                    .controlSize(.small)
+            }
+        }
+        .confirmationDialog(quitThenClean ? "退出\(app)并清理“\(result.rule.name)”？" : "退出\(app)？",
+                            isPresented: $confirmQuit, titleVisibility: .visible) {
+            Button(quitThenClean ? "退出并清理 \(formatBytes(result.bytes))" : "退出\(app)") {
+                model.quitApps(for: result, thenClean: quitThenClean)
+            }
+            Button("取消", role: .cancel) {}
+        } message: {
+            Text(quitThenClean
+                 ? "会像按 ⌘Q 一样让\(app)正常退出，然后把这一项移到废纸篓，完成后自动重新打开\(app)。"
+                 : "会像按 ⌘Q 一样让\(app)正常退出。退出后这一项就能勾选了，挑好要删的再清理。")
+        }
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
@@ -227,8 +273,12 @@ struct RuleRow: View {
                     }
                     Text(result.rule.detail).font(.caption).foregroundStyle(.secondary)
                     if let app = result.blocker {
-                        Label("\(app)正在运行，退出后点“重新扫描”才能清理", systemImage: "lock.fill")
-                            .font(.caption).foregroundStyle(.orange)
+                        if model.quittableApps(for: result).isEmpty {
+                            Label("\(app)正在运行，退出后点“重新扫描”才能清理", systemImage: "lock.fill")
+                                .font(.caption).foregroundStyle(.orange)
+                        } else {
+                            quitButtons(app)
+                        }
                     }
                     if !result.skippedRunning.isEmpty {
                         Label("已跳过正在运行的：\(result.skippedRunning.joined(separator: "、"))",

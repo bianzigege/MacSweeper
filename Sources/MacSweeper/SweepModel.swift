@@ -1,4 +1,4 @@
-import Foundation
+import AppKit
 import SweeperCore
 
 /// 界面状态：扫描、勾选、清理
@@ -12,6 +12,12 @@ final class SweepModel: ObservableObject {
     @Published var selected: Set<URL> = []
     @Published var lastReport: CleanReport?
     @Published var freeBytes: Int64 = 0
+    /// 忙碌时显示的文字
+    @Published var busyText = ""
+    /// 需要提醒的事，比如某个 App 没能退出
+    @Published var notice: String?
+    /// 被我们退出、还没重新打开的 App
+    @Published var appsToReopen: [URL] = []
 
     init() { refreshFreeSpace() }
 
@@ -70,7 +76,7 @@ final class SweepModel: ObservableObject {
 
     func scan(keepReport: Bool = false) {
         phase = .scanning
-        if !keepReport { lastReport = nil }
+        if !keepReport { lastReport = nil; notice = nil }
         Task {
             let found = await Task.detached(priority: .userInitiated) { Scanner.scan() }.value
             results = found.filter { !$0.items.isEmpty || !$0.unreadable.isEmpty }
@@ -86,10 +92,69 @@ final class SweepModel: ObservableObject {
         let plan = selectedResults
         guard !plan.isEmpty else { return }
         phase = .cleaning
+        busyText = "正在移到废纸篓…"
+        notice = nil
         Task {
             lastReport = await Task.detached(priority: .userInitiated) { Cleaner.moveToTrash(plan) }.value
             scan(keepReport: true)
         }
+    }
+
+    // MARK: 退出 App 再清理
+
+    /// 挡住这条规则的、正在运行的 App（只算有窗口的 App；命令行程序不在这里，不帮你结束）
+    func quittableApps(for r: ScanResult) -> [NSRunningApplication] {
+        guard let blocker = r.blocker, !blocker.hasPrefix("命令行") else { return [] }
+        let ids = Set(r.rule.quitApps.filter { !$0.hasPrefix("process:") }.map { $0.lowercased() })
+        return NSWorkspace.shared.runningApplications
+            .filter { ids.contains($0.bundleIdentifier?.lowercased() ?? "") }
+    }
+
+    /// 像按 ⌘Q 一样让 App 自己退出；thenClean 为 true 时接着把这一条全部清理，并重新打开 App
+    func quitApps(for r: ScanResult, thenClean: Bool) {
+        let apps = quittableApps(for: r)
+        guard !apps.isEmpty else { return }
+        let names = apps.compactMap(\.localizedName).joined(separator: "、")
+        let urls = apps.compactMap(\.bundleURL)
+        phase = .cleaning
+        busyText = "正在退出 \(names)…"
+        notice = nil
+        Task {
+            apps.forEach { $0.terminate() }
+            guard await waitUntilExited(apps, seconds: 20) else {
+                notice = "\(names) 没有退出，可能在等你保存内容或确认。请切换过去处理一下，再点“重新扫描”。"
+                scan(keepReport: true)
+                return
+            }
+            if thenClean {
+                busyText = "正在清理 \(r.rule.name)…"
+                let rule = r.rule
+                // App 退出后重新扫一遍这一条，拿到最新的文件列表再清理
+                lastReport = await Task.detached(priority: .userInitiated) {
+                    Cleaner.moveToTrash([Scanner.scan(rule: rule)])
+                }.value
+                reopen(urls)
+            } else {
+                appsToReopen = Array(Set(appsToReopen + urls))
+            }
+            scan(keepReport: true)
+        }
+    }
+
+    func reopen(_ urls: [URL]) {
+        for url in urls {
+            NSWorkspace.shared.openApplication(at: url, configuration: .init()) { _, _ in }
+        }
+        appsToReopen.removeAll { urls.contains($0) }
+    }
+
+    private func waitUntilExited(_ apps: [NSRunningApplication], seconds: Double) async -> Bool {
+        let deadline = Date().addingTimeInterval(seconds)
+        while Date() < deadline {
+            if apps.allSatisfy(\.isTerminated) { return true }
+            try? await Task.sleep(nanoseconds: 300_000_000)
+        }
+        return apps.allSatisfy(\.isTerminated)
     }
 
     /// 点类别的勾选框：全选时变全不选，否则变全选
