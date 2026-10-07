@@ -36,14 +36,16 @@ public enum Cleaner {
     /// 把项目移到废纸篓（不是永久删除，可以从废纸篓里还原）
     public static func moveToTrash(_ results: [ScanResult]) -> CleanReport {
         var report = CleanReport()
+        // 清理那一刻重新查一次哪些 App 在运行
+        let running = RunningSnapshot.current()
         for result in results where result.rule.safety != .reportOnly {
             // 清理那一刻再检查一次，App 正在运行就整条跳过
-            if let app = RunningApps.blocker(for: result.rule.quitApps) {
+            if let app = running.blocker(for: result.rule.quitApps) {
                 report.failures.append((result.rule.name, "\(app) 正在运行，请先退出"))
                 continue
             }
             for item in result.items {
-                if result.rule.checksOwnerPerItem, let app = RunningApps.owner(of: item.url) {
+                if result.rule.checksOwnerPerItem, let app = running.owner(of: item.url) {
                     report.failures.append((item.url.path, "\(app) 正在运行，请先退出"))
                     continue
                 }

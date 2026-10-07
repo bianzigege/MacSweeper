@@ -33,6 +33,8 @@ final class SweepModel: ObservableObject {
     /// 上一次清理的记录，可以撤销
     @Published var undoBatch: TrashBatch? = Undo.lastBatch()
     @Published var lastUndo: UndoReport?
+    /// 最近一次扫描时哪些 App 在运行（界面显示按钮用，不用每画一行都去查系统）
+    private var lastRunning: RunningSnapshot?
     /// 自定义规则文件里有问题的地方
     @Published var customProblems: [String] = []
 
@@ -162,6 +164,7 @@ final class SweepModel: ObservableObject {
         let all = RuleBook.builtIn + custom.rules
         Task {
             let session = ScanSession()
+            lastRunning = session.running
             // 第一轮：能清理的规则，扫完马上显示
             let first = await Task.detached(priority: .userInitiated) {
                 session.scan(all.filter { $0.safety != .reportOnly }) { done, total, name in
@@ -208,12 +211,17 @@ final class SweepModel: ObservableObject {
 
     // MARK: 退出 App 再清理
 
-    /// 挡住这条规则的、正在运行的 App（只算有窗口的 App；命令行程序不在这里，不帮你结束）
+    /// 挡住这条规则、可以帮你退出的 App（命令行程序不在这里，不帮你结束）。界面用，读最近一次扫描的结果
+    func canQuitApps(for r: ScanResult) -> Bool {
+        guard let blocker = r.blocker, !blocker.hasPrefix("命令行") else { return false }
+        return !(lastRunning?.apps(forBundleIDs: r.rule.quitApps).isEmpty ?? true)
+    }
+
+    /// 点“退出”时现查：此刻正在运行、要退出的 App
     func quittableApps(for r: ScanResult) -> [NSRunningApplication] {
         guard let blocker = r.blocker, !blocker.hasPrefix("命令行") else { return [] }
-        let ids = Set(r.rule.quitApps.filter { !$0.hasPrefix("process:") }.map { $0.lowercased() })
-        return NSWorkspace.shared.runningApplications
-            .filter { ids.contains($0.bundleIdentifier?.lowercased() ?? "") }
+        return RunningSnapshot.current().apps(forBundleIDs: r.rule.quitApps)
+            .compactMap { NSRunningApplication(processIdentifier: $0.pid) }
     }
 
     /// 像按 ⌘Q 一样让 App 自己退出；thenClean 为 true 时接着把这一条全部清理，并重新打开 App

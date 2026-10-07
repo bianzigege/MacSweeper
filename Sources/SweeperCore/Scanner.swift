@@ -42,6 +42,8 @@ public struct ScanResult: Sendable, Identifiable {
 /// 一次扫描：几轮扫描共用同一个大小计算器（记住算过的文件夹）
 public final class ScanSession: @unchecked Sendable {
     let sizes = SizeCalculator()
+    /// 扫描开始时查一次哪些 App 在运行，所有规则共用
+    public let running = RunningSnapshot.current()
     /// 同时扫几条规则。实测 6 条最快：再多会互相抢硬盘，反而变慢
     static let concurrency = 6
 
@@ -55,8 +57,8 @@ public final class ScanSession: @unchecked Sendable {
         let queue = OperationQueue()
         queue.maxConcurrentOperationCount = Self.concurrency
         for (i, rule) in rules.enumerated() {
-            queue.addOperation { [sizes] in
-                let r = Scanner.scan(rule: rule, sizes: sizes)
+            queue.addOperation { [sizes, running] in
+                let r = Scanner.scan(rule: rule, sizes: sizes, running: running)
                 lock.lock(); results[i] = r; done += 1; let n = done; lock.unlock()
                 progress?(n, rules.count, rule.name)
             }
@@ -108,16 +110,16 @@ public enum Scanner {
     }
 
     public static func scan(rule: Rule) -> ScanResult {
-        scan(rule: rule, sizes: SizeCalculator())
+        scan(rule: rule, sizes: SizeCalculator(), running: .current())
     }
 
-    static func scan(rule: Rule, sizes: SizeCalculator) -> ScanResult {
+    static func scan(rule: Rule, sizes: SizeCalculator, running: RunningSnapshot) -> ScanResult {
         var unreadable: [String] = []
         var found = candidates(for: rule.target, unreadable: &unreadable)
         var skipped = Set<String>()
         if rule.checksOwnerPerItem {
             found = found.filter { c in
-                guard let app = RunningApps.owner(of: c.url) else { return true }
+                guard let app = running.owner(of: c.url) else { return true }
                 skipped.insert(app)
                 return false
             }
@@ -136,7 +138,7 @@ public enum Scanner {
         }
         .sorted { $0.bytes > $1.bytes }
         return ScanResult(rule: rule, items: items, unreadable: unreadable,
-                          blocker: RunningApps.blocker(for: rule.quitApps),
+                          blocker: running.blocker(for: rule.quitApps),
                           skippedRunning: skipped.sorted())
     }
 

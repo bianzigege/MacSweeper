@@ -192,10 +192,36 @@ group("最短保留天数：太新的备份不列出") {
     check(names == ["old.backup-1"], "7 天内的不列出（实际：\(names)）")
 }
 
-group("运行检查") {
-    check(RunningApps.blocker(for: ["process:launchd"]) != nil, "能发现正在运行的命令行程序")
+group("运行检查：真实系统") {
+    check(RunningApps.blocker(for: ["process:launchd"]) != nil, "能发现正在运行的命令行程序（包括上级进程）")
     check(RunningApps.blocker(for: ["com.example.not-installed"]) == nil, "没运行的不挡")
     check(RunningApps.blocker(for: []) == nil, "没要求退出的不挡")
+}
+
+group("运行检查：文件夹属于哪个 App（用假数据，不受电脑上开了什么影响）") {
+    func app(_ id: String?, _ name: String, exe: String? = nil, ui: Bool = true) -> RunningApp {
+        RunningApp(pid: 1, bundleID: id, name: name, bundleURL: URL(fileURLWithPath: "/Applications/\(name).app"),
+                   executableName: exe, hasUI: ui)
+    }
+    let snap = RunningSnapshot(apps: [
+        app("com.tencent.xinWeChat", "微信", exe: "WeChat"),
+        app("com.electron.lark", "Lark"),
+        app("com.apple.finder", "Finder"),
+        app("com.example.helper", "Helper", ui: false),
+    ], processNames: ["codex", "zsh"])
+    let lib = home + "/Library"
+    let owner = { snap.owner(of: URL(fileURLWithPath: lib + $0)) }
+    check(owner("/Containers/com.tencent.xinWeChat/Data/Library/Caches/profiles") == "微信",
+          "沙盒里的缓存认成微信（路径里有两段 Library 也不认错）")
+    check(owner("/Application Support/LarkInternational/Cache") == "Lark", "按名字认出 LarkInternational 属于 Lark")
+    check(owner("/Caches/com.tencent.xinWeChat.helper") == "微信", "辅助程序的文件夹也算")
+    check(owner("/Caches/Finder") == nil, "苹果自己的 App 不参与")
+    check(owner("/Caches/Helper") == nil, "后台服务不参与")
+    check(owner("/Caches/com.google.Chrome") == nil, "没在运行的不挡")
+    check(snap.blocker(for: ["process:codex"]) == "命令行 codex", "命令行程序能发现")
+    check(snap.blocker(for: ["COM.TENCENT.XINWECHAT"]) == "微信", "Bundle ID 不分大小写")
+    check(snap.apps(forBundleIDs: ["process:codex", "com.electron.lark"]).map(\.name) == ["Lark"],
+          "能帮你退出的只算有界面的 App，不算命令行程序")
 }
 
 // MARK: - 撤销
