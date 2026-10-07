@@ -13,6 +13,7 @@
 - **浏览器缓存**：Chrome、Edge 及各种 Electron 应用的 Service Worker 缓存，不碰书签、密码和登录状态
 - **已卸载 App 的残留**：保守识别，宁可漏掉也不误删
 - **大文件查找**：列出主目录里超过 500MB 的文件，逐个决定
+- **AI 工具与项目**：梳理 Codex、Claude、WorkBuddy 等 AI 工具帮你做过的项目——长期没动的项目和它们的依赖（node_modules、.venv 等）、Codex 旧对话和日志、Claude Cowork 虚拟机、已卸载 AI 工具（Trae、Cursor、豆包等）的残留
 - **逐项勾选**：每一类都能展开，看清楚每个文件夹的大小和修改时间再决定
 - **App 正在运行时自动跳过**它的文件
 
@@ -90,6 +91,9 @@ swift build -c release
 - 相关 App 正在运行时（微信、Chrome 等）不允许清理它的缓存，清理那一刻还会再检查一次
 - 浏览器类缓存只删 Cache、Service Worker 缓存等可重建的目录，不碰书签、密码、Cookie 和网站数据
 - 大文件查找跳过 `~/Library`、隐藏目录（.git、.codex 等）、node_modules、数据库文件和 App 数据包（如照片图库），默认不勾选
+- AI 项目只清理能重新安装的依赖，不碰 dist、build 等可能是成果的目录；整个项目文件夹只列出来，由你自己决定删不删
+- 已卸载 AI 工具的文件夹里如果装着命令行工具（有 bin 目录），一律不动——比如 `~/.deskclaw` 里装着 `claude`、`codex` 命令
+- Codex 正在运行（桌面版或命令行）时，不清理它的对话和日志；最近 7 天内的备份不算
 - 判断"已卸载 App 的残留"很保守：同一厂商还有 App 装着、名字对得上已安装的 App、最近 30 天有改动，都不算残留
 - 每一次操作都会记录在 `~/Library/Logs/MacSweeper/operations.log`
 
@@ -103,6 +107,7 @@ swift build -c release
 | `Sources/sweep/main.swift` | 命令行界面 |
 | `Sources/MacSweeper/` | SwiftUI 图形界面（`SweepModel` 管状态，`ContentView` 管显示） |
 | `Sources/SweeperCore/Finders.swift` | 浏览器缓存、已卸载 App 残留、大文件的查找逻辑 |
+| `Sources/SweeperCore/AIFinders.swift` | AI 项目和依赖、Codex 旧对话、已卸载 AI 工具的查找逻辑 |
 | `scripts/build-app.sh` | 把图形界面打包成 .app |
 | `scripts/make-icon.swift` | 生成 App 图标 |
 | `scripts/make-dmg.sh` | 生成分发用的 DMG 安装包，可选签名和公证 |

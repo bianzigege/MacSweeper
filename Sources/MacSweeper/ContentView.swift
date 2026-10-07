@@ -195,7 +195,13 @@ struct RuleRow: View {
                     Image(systemName: "lock.fill").foregroundStyle(.orange).frame(width: 15)
                 }
                 VStack(alignment: .leading, spacing: 2) {
-                    Text(result.rule.name).font(.body.weight(.medium))
+                    HStack(spacing: 6) {
+                        Text(result.rule.name).font(.body.weight(.medium))
+                        Text(result.rule.category)
+                            .font(.caption2).foregroundStyle(.secondary)
+                            .padding(.horizontal, 5).padding(.vertical, 1)
+                            .background(.quaternary, in: RoundedRectangle(cornerRadius: 4))
+                    }
                     Text(result.rule.detail).font(.caption).foregroundStyle(.secondary)
                     if let app = result.blocker {
                         Label("\(app)正在运行，退出后点“重新扫描”才能清理", systemImage: "lock.fill")
@@ -245,8 +251,9 @@ struct RuleRow: View {
                 CheckBox(state: model.selected.contains(item.url) ? .on : .off) { model.toggle(item.url) }
             }
             VStack(alignment: .leading, spacing: 1) {
-                Text(item.url.lastPathComponent).font(.callout).lineLimit(1)
-                Text(item.url.deletingLastPathComponent().path
+                Text(item.displayName).font(.callout).lineLimit(1)
+                // 有显示名的（如“tk-creator › node_modules”）给出完整路径，否则给所在文件夹
+                Text((item.label == nil ? item.url.deletingLastPathComponent() : item.url).path
                         .replacingOccurrences(of: NSHomeDirectory(), with: "~"))
                     .font(.caption2).foregroundStyle(.secondary)
                     .lineLimit(1).truncationMode(.middle)

@@ -4,8 +4,19 @@ import Foundation
 public struct Item: Sendable {
     public let url: URL
     public let bytes: Int64
-    /// 最后修改时间，帮助判断还有没有用
+    /// 最后修改时间，帮助判断还有没有用（项目依赖用的是整个项目最后一次改动的时间）
     public let modified: Date?
+    /// 显示用的名字，比如“tk-creator 的 node_modules”；没有就显示文件名
+    public let label: String?
+
+    public var displayName: String { label ?? url.lastPathComponent }
+}
+
+/// 查找阶段的结果：路径，加上可选的显示名和日期
+struct Candidate {
+    let url: URL
+    var label: String? = nil
+    var modified: Date? = nil
 }
 
 public struct ScanResult: Sendable, Identifiable {
@@ -37,18 +48,27 @@ public enum Scanner {
             let r = scan(rule: rules[i])
             lock.lock(); results[i] = r; lock.unlock()
         }
-        return dedupeLargeFiles(results.compactMap { $0 })
+        return dedupe(results.compactMap { $0 })
     }
 
-    /// 大文件可能已经在别的规则里（比如下载文件夹的安装包），从大文件里去掉，避免重复计算
-    static func dedupeLargeFiles(_ results: [ScanResult]) -> [ScanResult] {
-        let isLarge: (ScanResult) -> Bool = { if case .largeFiles = $0.rule.target { return true }; return false }
-        let others = results.filter { !isLarge($0) }.flatMap { $0.items.map(\.url.path) }
-        let covered = Set(others)
-        return results.map { r in
-            guard isLarge(r) else { return r }
+    /// 同一个文件可能被几条规则找到（比如大文件也是下载的安装包，浏览器缓存也在已卸载工具的文件夹里）。
+    /// 规则：被别的可清理规则的文件夹整个包含的，从自己这条里去掉；完全相同的，只留在排前面的规则里。
+    /// “只报告”的规则不参与，它们本来就只是看看。
+    static func dedupe(_ results: [ScanResult]) -> [ScanResult] {
+        var owner: [String: Int] = [:]   // 路径 → 第一个拥有它的规则序号
+        for (i, r) in results.enumerated() where r.rule.safety != .reportOnly {
+            for item in r.items where owner[item.url.path] == nil { owner[item.url.path] = i }
+        }
+        return results.enumerated().map { i, r in
+            guard r.rule.safety != .reportOnly else { return r }
             let items = r.items.filter { item in
-                !covered.contains(item.url.path) && !others.contains { item.url.path.hasPrefix($0 + "/") }
+                if let first = owner[item.url.path], first != i { return false }
+                var parent = item.url.deletingLastPathComponent()
+                while parent.path.count > 1 {
+                    if owner[parent.path] != nil { return false }
+                    parent = parent.deletingLastPathComponent()
+                }
+                return true
             }
             return ScanResult(rule: r.rule, items: items, unreadable: r.unreadable,
                               blocker: r.blocker, skippedRunning: r.skippedRunning)
@@ -57,21 +77,25 @@ public enum Scanner {
 
     public static func scan(rule: Rule) -> ScanResult {
         var unreadable: [String] = []
-        var urls = candidates(for: rule.target, unreadable: &unreadable)
+        var found = candidates(for: rule.target, unreadable: &unreadable)
         var skipped = Set<String>()
         if rule.checksOwnerPerItem {
-            urls = urls.filter { url in
-                guard let app = RunningApps.owner(of: url) else { return true }
+            found = found.filter { c in
+                guard let app = RunningApps.owner(of: c.url) else { return true }
                 skipped.insert(app)
                 return false
             }
         }
-        let items = urls.compactMap { url -> Item? in
-            guard PathGuard.isAllowed(url) else { return nil }
-            let size = allocatedSize(of: url)
+        let items = found.compactMap { c -> Item? in
+            // 只报告的规则可以看主目录以外（比如“应用程序”里的旧版备份），反正不会去删
+            guard rule.safety == .reportOnly || PathGuard.isAllowed(c.url) else { return nil }
+            let size = allocatedSize(of: c.url)
             guard size > 0 else { return nil }
-            let modified = (try? url.resourceValues(forKeys: [.contentModificationDateKey]))?.contentModificationDate
-            return Item(url: url, bytes: size, modified: modified)
+            let modified = c.modified
+                ?? (try? c.url.resourceValues(forKeys: [.contentModificationDateKey]))?.contentModificationDate
+            if let days = rule.minAgeDays, let m = modified,
+               m > Date().addingTimeInterval(-Double(days) * 86_400) { return nil }
+            return Item(url: c.url, bytes: size, modified: modified, label: c.label)
         }
         .sorted { $0.bytes > $1.bytes }
         return ScanResult(rule: rule, items: items, unreadable: unreadable,
@@ -79,7 +103,22 @@ public enum Scanner {
                           skippedRunning: skipped.sorted())
     }
 
-    static func candidates(for target: Target, unreadable: inout [String]) -> [URL] {
+    static func candidates(for target: Target, unreadable: inout [String]) -> [Candidate] {
+        switch target {
+        case let .projectDependencies(inactiveDays):
+            return ProjectFinder.dependencies(inactiveDays: inactiveDays)
+        case let .staleProjects(inactiveDays):
+            return ProjectFinder.staleProjects(inactiveDays: inactiveDays)
+        case let .codexSessions(olderThanDays):
+            return CodexFinder.oldSessionMonths(olderThanDays: olderThanDays)
+        case let .uninstalledTools(traces):
+            return ToolTraceFinder.find(traces)
+        default:
+            return urls(for: target, unreadable: &unreadable).map { Candidate(url: $0) }
+        }
+    }
+
+    static func urls(for target: Target, unreadable: inout [String]) -> [URL] {
         let fm = FileManager.default
         /// 列出目录内容；目录存在但读不了时记下来
         func list(_ dir: URL) -> [URL] {
@@ -119,6 +158,9 @@ public enum Scanner {
 
         case let .largeFiles(minBytes):
             return LargeFileFinder.find(minBytes: minBytes)
+
+        case .projectDependencies, .staleProjects, .codexSessions, .uninstalledTools:
+            return []   // 在 candidates 里处理
         }
     }
 

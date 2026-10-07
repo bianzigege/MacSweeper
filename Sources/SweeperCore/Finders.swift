@@ -4,16 +4,18 @@ import Foundation
 // MARK: - 通配路径
 
 enum PathPattern {
-    /// 展开路径里的 `*`（每个 * 匹配一层目录名），名字以 skipPrefixes 开头的跳过
+    /// 展开路径里的通配符：含 `*` 的那一段按文件名匹配（如 `*` 或 `*.backup-*`）。
+    /// 隐藏文件只在模式本身以 . 开头时才匹配；名字以 skipPrefixes 开头的跳过
     static func expand(_ pattern: String, skipPrefixes: [String] = []) -> [URL] {
         let full = (pattern as NSString).expandingTildeInPath
         var matches = ["/"]
         for part in full.split(separator: "/").map(String.init) {
-            if part == "*" {
+            if part.contains("*") {
                 matches = matches.flatMap { dir -> [String] in
                     let names = (try? FileManager.default.contentsOfDirectory(atPath: dir)) ?? []
                     return names
-                        .filter { !$0.hasPrefix(".") && !skipPrefixes.contains(where: $0.hasPrefix) }
+                        .filter { part.hasPrefix(".") || !$0.hasPrefix(".") }
+                        .filter { fnmatch(part, $0, 0) == 0 && !skipPrefixes.contains(where: $0.hasPrefix) }
                         .map { (dir as NSString).appendingPathComponent($0) }
                 }
             } else {
@@ -247,6 +249,17 @@ enum AppInventory {
 
 // MARK: - 正在运行的 App
 
+func isProcessRunning(_ name: String) -> Bool {
+    let p = Process()
+    p.executableURL = URL(fileURLWithPath: "/usr/bin/pgrep")
+    p.arguments = ["-x", name]
+    p.standardOutput = FileHandle.nullDevice
+    p.standardError = FileHandle.nullDevice
+    guard (try? p.run()) != nil else { return false }
+    p.waitUntilExit()
+    return p.terminationStatus == 0
+}
+
 public enum RunningApps {
     /// 判断 ~/Library/<Application Support|Caches|Logs|Containers>/<文件夹>/ 对应的 App 是否在运行。
     /// 按 Bundle ID（com.openai.codex）或名字（LarkInternational ↔ Lark）匹配，宁可多跳过，不在 App 运行时动它的文件
@@ -274,7 +287,12 @@ public enum RunningApps {
     /// 返回 bundleIDs 里正在运行的那个 App 的名字
     public static func blocker(for bundleIDs: [String]) -> String? {
         guard !bundleIDs.isEmpty else { return nil }
-        let ids = Set(bundleIDs.map { $0.lowercased() })
+        // "process:codex" 这种是命令行程序，用 pgrep 查
+        for entry in bundleIDs where entry.hasPrefix("process:") {
+            let name = String(entry.dropFirst("process:".count))
+            if isProcessRunning(name) { return "命令行 \(name)" }
+        }
+        let ids = Set(bundleIDs.filter { !$0.hasPrefix("process:") }.map { $0.lowercased() })
         return NSWorkspace.shared.runningApplications
             .first { ids.contains($0.bundleIdentifier?.lowercased() ?? "") }
             .map { $0.localizedName ?? $0.bundleIdentifier ?? "相关 App" }

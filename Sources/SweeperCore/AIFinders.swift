@@ -1,0 +1,172 @@
+import Foundation
+
+// MARK: - 项目和项目依赖
+
+/// 找主目录里的项目文件夹（AI 工具帮你做的网站、小程序、脚本等），
+/// 算出每个项目最后一次改动的时间，以及里面能重新生成的依赖目录
+enum ProjectFinder {
+    struct Project {
+        let url: URL
+        let lastActive: Date
+        let dependencies: [URL]
+    }
+
+    /// 有这些文件之一的文件夹就算一个项目
+    static let markers: Set<String> = [
+        "package.json", "pyproject.toml", "requirements.txt", "Cargo.toml", "go.mod", "Package.swift",
+        "index.html", "CLAUDE.md", "AGENTS.md", ".git",
+    ]
+    /// 主目录第一层里不去找项目的文件夹
+    static let skipTop: Set<String> = ["Library", "Applications", "Movies", "Music", "Pictures", "Public"]
+
+    /// 删了能重新安装或重新生成的目录。dist、build 这类可能是你要交付的成果，不算
+    static let alwaysDependency: Set<String> = [
+        "node_modules", ".next", ".nuxt", ".turbo", ".parcel-cache", ".svelte-kit", ".vite", ".expo",
+        "__pycache__", ".pytest_cache", ".mypy_cache", ".ruff_cache", "DerivedData", ".gradle",
+    ]
+    /// 只有旁边有对应文件时才算依赖，比如 target 旁边要有 Cargo.toml
+    static let dependencyIfSibling: [String: String] = [
+        "target": "Cargo.toml", ".build": "Package.swift", "Pods": "Podfile",
+    ]
+
+    // 一次扫描里两条规则都要用，结果缓存两分钟，避免把主目录走两遍
+    private static let lock = NSLock()
+    private static var cached: (time: Date, projects: [Project])?
+
+    static func all() -> [Project] {
+        lock.lock(); defer { lock.unlock() }
+        if let c = cached, Date().timeIntervalSince(c.time) < 120 { return c.projects }
+        let home = FileManager.default.homeDirectoryForCurrentUser
+        var roots: [URL] = []
+        for name in (try? FileManager.default.contentsOfDirectory(atPath: home.path)) ?? []
+        where !name.hasPrefix(".") && !skipTop.contains(name) {
+            findRoots(home.appendingPathComponent(name), depth: 1, into: &roots)
+        }
+        let projects = roots.map(inspect)
+        cached = (Date(), projects)
+        return projects
+    }
+
+    static func dependencies(inactiveDays: Int) -> [Candidate] {
+        let cutoff = Date().addingTimeInterval(-Double(inactiveDays) * 86_400)
+        return all().filter { $0.lastActive < cutoff }.flatMap { p in
+            p.dependencies.map { dep in
+                let inner = String(dep.path.dropFirst(p.url.path.count + 1))
+                return Candidate(url: dep, label: "\(p.url.lastPathComponent) › \(inner)", modified: p.lastActive)
+            }
+        }
+    }
+
+    static func staleProjects(inactiveDays: Int) -> [Candidate] {
+        let cutoff = Date().addingTimeInterval(-Double(inactiveDays) * 86_400)
+        return all().filter { $0.lastActive < cutoff }.map { Candidate(url: $0.url, modified: $0.lastActive) }
+    }
+
+    /// 往下找项目根目录，找到就不再往里找（项目里的子项目算同一个）
+    private static func findRoots(_ dir: URL, depth: Int, into roots: inout [URL]) {
+        guard depth <= 6, let names = try? FileManager.default.contentsOfDirectory(atPath: dir.path) else { return }
+        if !markers.isDisjoint(with: names) { roots.append(dir); return }
+        for name in names where !name.hasPrefix(".") && !alwaysDependency.contains(name) {
+            let url = dir.appendingPathComponent(name)
+            if isPlainDirectory(url) { findRoots(url, depth: depth + 1, into: &roots) }
+        }
+    }
+
+    /// 走一遍项目：记下依赖目录（不进去），其余文件里最新的修改时间就是项目最后活跃的时间
+    private static func inspect(_ root: URL) -> Project {
+        var deps: [URL] = []
+        var newest = Date.distantPast
+        var stack = [root]
+        let fm = FileManager.default
+        while let dir = stack.popLast() {
+            guard let names = try? fm.contentsOfDirectory(atPath: dir.path) else { continue }
+            let siblings = Set(names)
+            for name in names where name != ".git" && name != ".DS_Store" {
+                let url = dir.appendingPathComponent(name)
+                if alwaysDependency.contains(name)
+                    || dependencyIfSibling[name].map(siblings.contains) == true
+                    || ((name == ".venv" || name == "venv") && fm.fileExists(atPath: url.path + "/pyvenv.cfg")) {
+                    deps.append(url)
+                    continue
+                }
+                if isPlainDirectory(url) {
+                    stack.append(url)
+                } else if let m = (try? url.resourceValues(forKeys: [.contentModificationDateKey]))?
+                            .contentModificationDate, m > newest {
+                    newest = m
+                }
+            }
+        }
+        return Project(url: root, lastActive: newest, dependencies: deps)
+    }
+
+    private static func isPlainDirectory(_ url: URL) -> Bool {
+        let v = try? url.resourceValues(forKeys: [.isDirectoryKey, .isSymbolicLinkKey, .isPackageKey])
+        return v?.isDirectory == true && v?.isSymbolicLink != true && v?.isPackage != true
+    }
+}
+
+// MARK: - Codex 旧对话
+
+enum CodexFinder {
+    /// ~/.codex/sessions/年/月 里，整个月都早于 olderThanDays 天前的月份
+    static func oldSessionMonths(olderThanDays days: Int) -> [Candidate] {
+        let base = Scanner.expand("~/.codex/sessions")
+        let fm = FileManager.default
+        let cal = Calendar(identifier: .gregorian)
+        let cutoff = Date().addingTimeInterval(-Double(days) * 86_400)
+        var found: [Candidate] = []
+        for year in (try? fm.contentsOfDirectory(atPath: base.path)) ?? [] {
+            guard let y = Int(year) else { continue }
+            let yearURL = base.appendingPathComponent(year)
+            for month in (try? fm.contentsOfDirectory(atPath: yearURL.path)) ?? [] {
+                guard let m = Int(month),
+                      let start = cal.date(from: DateComponents(year: y, month: m, day: 1)),
+                      let next = cal.date(byAdding: .month, value: 1, to: start),
+                      next < cutoff
+                else { continue }
+                let url = yearURL.appendingPathComponent(month)
+                let count = fm.enumerator(atPath: url.path)?.allObjects
+                    .filter { ($0 as? String)?.hasSuffix(".jsonl") == true }.count ?? 0
+                found.append(Candidate(url: url, label: "\(y) 年 \(m) 月的对话（\(count) 个）",
+                                       modified: next.addingTimeInterval(-1)))
+            }
+        }
+        return found
+    }
+}
+
+// MARK: - 已卸载 AI 工具的残留
+
+enum ToolTraceFinder {
+    static func find(_ traces: [ToolTrace]) -> [Candidate] {
+        let installed = AppInventory.scan().names
+        let fm = FileManager.default
+        var found: [Candidate] = []
+        for trace in traces where !trace.appNames.contains(where: { installed.contains($0.lowercased()) }) {
+            for path in trace.paths {
+                let url = Scanner.expand(path)
+                guard fm.fileExists(atPath: url.path) else { continue }
+                // 里面装着命令行工具（bin 目录）的不动，比如 ~/.deskclaw 里装着 claude、codex 命令
+                if containsCommandLineTools(url) { continue }
+                found.append(Candidate(url: url, label: "\(trace.name) · \(url.lastPathComponent)"))
+            }
+        }
+        return found
+    }
+
+    static func containsCommandLineTools(_ dir: URL) -> Bool {
+        guard let e = FileManager.default.enumerator(at: dir, includingPropertiesForKeys: [.isDirectoryKey],
+                                                     options: [], errorHandler: { _, _ in true })
+        else { return false }
+        while let url = e.nextObject() as? URL {
+            if e.level > 3 { e.skipDescendants(); continue }
+            if url.lastPathComponent == "bin",
+               let names = try? FileManager.default.contentsOfDirectory(atPath: url.path), !names.isEmpty {
+                return true
+            }
+            if url.lastPathComponent == "node_modules" { e.skipDescendants() }
+        }
+        return false
+    }
+}

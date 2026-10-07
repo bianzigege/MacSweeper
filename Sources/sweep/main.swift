@@ -30,6 +30,12 @@ func lpad(_ s: String, _ width: Int) -> String {
     String(repeating: " ", count: max(0, width - displayWidth(s))) + s
 }
 
+let dateFormatter: DateFormatter = {
+    let f = DateFormatter()
+    f.dateFormat = "yyyy-MM-dd"
+    return f
+}()
+
 let label: [Safety: String] = [.safe: "✅ 可放心清理", .review: "⚠️  需确认", .reportOnly: "ℹ️  只报告"]
 
 func printTable(_ results: [ScanResult], detail: Bool) {
@@ -53,8 +59,9 @@ func printTable(_ results: [ScanResult], detail: Bool) {
             }
             if detail {
                 for item in r.items.prefix(5) {
-                    let shown = item.url.path.replacingOccurrences(of: NSHomeDirectory(), with: "~")
-                    print("        " + lpad(formatBytes(item.bytes), 10) + "  " + shown)
+                    let shown = item.label ?? item.url.path.replacingOccurrences(of: NSHomeDirectory(), with: "~")
+                    let date = item.modified.map { " ·" + dateFormatter.string(from: $0) } ?? ""
+                    print("        " + lpad(formatBytes(item.bytes), 10) + "  " + shown + date)
                 }
             }
         }

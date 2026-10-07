@@ -26,6 +26,27 @@ public enum Target: Sendable {
     case leftovers
     /// 主目录里超过 minBytes 的单个文件（跳过 ~/Library、.git、node_modules 和 App 数据包）
     case largeFiles(minBytes: Int64)
+    /// 超过 inactiveDays 天没改过的项目里，能重新安装/生成的依赖（node_modules、.venv 等）
+    case projectDependencies(inactiveDays: Int)
+    /// 超过 inactiveDays 天没改过的整个项目文件夹
+    case staleProjects(inactiveDays: Int)
+    /// Codex 的旧对话记录，按月份
+    case codexSessions(olderThanDays: Int)
+    /// 已经卸载的 AI 工具留下的文件夹
+    case uninstalledTools([ToolTrace])
+}
+
+/// 一个 AI 工具留在电脑上的痕迹：对应的 App 名字都没装时，这些路径才算残留
+public struct ToolTrace: Sendable {
+    public let name: String
+    public let appNames: [String]
+    public let paths: [String]
+
+    public init(_ name: String, apps: [String], paths: [String]) {
+        self.name = name
+        self.appNames = apps
+        self.paths = paths
+    }
 }
 
 public struct Rule: Sendable, Identifiable {
@@ -35,11 +56,13 @@ public struct Rule: Sendable, Identifiable {
     public let safety: Safety
     public let detail: String
     public let target: Target
-    /// 清理前必须先退出的 App（Bundle ID）
+    /// 清理前必须先退出的 App（Bundle ID）；写成 "process:名字" 表示命令行程序
     public let quitApps: [String]
 
     /// 逐项检查所属 App 是否在运行，在运行的跳过
     public let skipsRunningApps: Bool
+    /// 最近这么多天内改过的不算（比如刚做的备份可能还要用来回滚）
+    public let minAgeDays: Int?
 
     /// 没指定 quitApps 的浏览器类缓存，或者明确要求逐项检查的规则
     var checksOwnerPerItem: Bool {
@@ -48,7 +71,7 @@ public struct Rule: Sendable, Identifiable {
     }
 
     public init(id: String, name: String, category: String, safety: Safety, detail: String,
-                target: Target, quitApps: [String] = [], skipsRunningApps: Bool = false) {
+                target: Target, quitApps: [String] = [], skipsRunningApps: Bool = false, minAgeDays: Int? = nil) {
         self.id = id
         self.name = name
         self.category = category
@@ -57,6 +80,7 @@ public struct Rule: Sendable, Identifiable {
         self.target = target
         self.quitApps = quitApps
         self.skipsRunningApps = skipsRunningApps
+        self.minAgeDays = minAgeDays
     }
 }
 
@@ -114,6 +138,61 @@ public enum RuleBook {
         Rule(id: "chromium-apps-cache", name: "其他浏览器和 Electron 应用缓存", category: "浏览器", safety: .review,
              detail: "Edge、夸克、豆包、飞书、VS Code 等的网页缓存。不影响登录状态，建议先退出这些应用",
              target: .chromiumCaches(roots: ["~/Library/Application Support"], excluding: [chrome])),
+
+        // MARK: AI 工具与项目
+        Rule(id: "ai-project-deps", name: "长期没动的项目依赖", category: "AI 工具与项目", safety: .review,
+             detail: "超过 30 天没改过的项目里的 node_modules、.venv 等。以后要接着做，在项目里重新安装依赖（如 npm install）就能恢复",
+             target: .projectDependencies(inactiveDays: 30)),
+        Rule(id: "codex-old-sessions", name: "Codex 旧对话记录", category: "AI 工具与项目", safety: .review,
+             detail: "两个月以前的 Codex 对话，按月份列出。删除后，这些对话在 Codex 里就找不到、也不能接着聊了",
+             target: .codexSessions(olderThanDays: 60),
+             quitApps: ["com.openai.codex", "process:codex"]),
+        Rule(id: "codex-backups", name: "Codex 修复留下的备份", category: "AI 工具与项目", safety: .safe,
+             detail: "Codex 升级或修复数据时留下的旧备份文件，平时用不到。最近 7 天内的备份不算，可能还要用来回滚",
+             target: .paths(["~/.codex/*.backup-*", "~/.codex/*.bak", "~/.codex/backup-*"]),
+             minAgeDays: 7),
+        Rule(id: "codex-logs", name: "Codex 运行日志", category: "AI 工具与项目", safety: .review,
+             detail: "Codex 的运行日志数据库，不含对话内容。删除后 Codex 会重新生成",
+             target: .paths(["~/.codex/logs_*.sqlite", "~/.codex/logs_*.sqlite-wal", "~/.codex/logs_*.sqlite-shm"]),
+             quitApps: ["com.openai.codex", "process:codex"]),
+        Rule(id: "codex-images", name: "Codex 生成的图片", category: "AI 工具与项目", safety: .review,
+             detail: "Codex 帮你生成的图片，按对话分文件夹。是你的作品，删除前先确认需要的已经另存",
+             target: .contents(of: "~/.codex/generated_images")),
+        Rule(id: "claude-vm", name: "Claude Cowork 虚拟机", category: "AI 工具与项目", safety: .review,
+             detail: "Claude 桌面版 Cowork 功能用的虚拟机。不用 Cowork 可以删，以后再用会自动重新下载",
+             target: .paths(["~/Library/Application Support/Claude/vm_bundles"]),
+             quitApps: ["com.anthropic.claudefordesktop"]),
+        Rule(id: "ai-tool-leftovers", name: "已卸载 AI 工具的残留", category: "AI 工具与项目", safety: .review,
+             detail: "App 已经删掉的 AI 工具留下的设置和数据。有的里面可能有工作文件（workspace），请展开先看看",
+             target: .uninstalledTools([
+                 ToolTrace("Trae", apps: ["Trae", "Trae CN"],
+                           paths: ["~/.trae", "~/.trae-cn", "~/Library/Application Support/Trae",
+                                   "~/Library/Application Support/Trae CN"]),
+                 ToolTrace("Cursor", apps: ["Cursor"],
+                           paths: ["~/.cursor", "~/Library/Application Support/Cursor"]),
+                 ToolTrace("Windsurf", apps: ["Windsurf"],
+                           paths: ["~/.windsurf", "~/.codeium", "~/Library/Application Support/Windsurf"]),
+                 ToolTrace("Qoder", apps: ["Qoder"],
+                           paths: ["~/.qoder", "~/Library/Application Support/Qoder"]),
+                 ToolTrace("CodeBuddy", apps: ["CodeBuddy", "CodeBuddy CN"],
+                           paths: ["~/.codebuddy", "~/Library/Application Support/CodeBuddy"]),
+                 ToolTrace("豆包", apps: ["Doubao", "豆包"],
+                           paths: ["~/Library/Application Support/Doubao"]),
+                 ToolTrace("Kimi", apps: ["Kimi"],
+                           paths: ["~/Library/Application Support/Kimi"]),
+                 ToolTrace("QClaw", apps: ["QClaw"],
+                           paths: ["~/.qclaw", "~/Library/Application Support/QClaw"]),
+                 ToolTrace("AutoClaw", apps: ["AutoClaw"],
+                           paths: ["~/.openclaw-autoclaw", "~/Library/Application Support/autoclaw"]),
+                 ToolTrace("Craft Agent", apps: ["Craft Agent", "Craft Agents"],
+                           paths: ["~/.craft-agent", "~/Library/Application Support/@craft-agent"]),
+             ])),
+        Rule(id: "stale-projects", name: "长期没动的项目", category: "AI 工具与项目", safety: .reportOnly,
+             detail: "超过 60 天没改过的项目文件夹，帮你梳理做完就没管的项目。确认不要了，点放大镜在访达里自己删除",
+             target: .staleProjects(inactiveDays: 60)),
+        Rule(id: "app-backups", name: "“应用程序”里的旧版备份", category: "AI 工具与项目", safety: .reportOnly,
+             detail: "汉化补丁或升级时留下的 App 旧版副本。确认新版正常后，可以在“应用程序”里把它拖到废纸篓",
+             target: .paths(["/Applications/*backup*.app", "/Applications/* copy.app", "/Applications/*副本*.app"])),
 
         // MARK: 开发
         Rule(id: "xcode-derived", name: "Xcode 编译缓存", category: "开发", safety: .safe,
