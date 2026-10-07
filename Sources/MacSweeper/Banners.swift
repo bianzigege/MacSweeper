@@ -6,13 +6,13 @@ import SweeperCore
 extension ContentView {
     func reportBanner(_ report: CleanReport) -> some View {
         VStack(alignment: .leading, spacing: 4) {
-            Label("已将 \(report.trashedCount) 个项目（\(formatBytes(report.trashedBytes))）移到废纸篓",
+            Label(L("已将 %ld 个项目（%@）移到废纸篓", report.trashedCount, formatBytes(report.trashedBytes)),
                   systemImage: "checkmark.circle.fill")
                 .font(.headline).foregroundStyle(.green)
             Text("确认电脑一切正常后，清空废纸篓才会真正释放空间。")
                 .font(.callout).foregroundStyle(.secondary)
             if !report.failures.isEmpty {
-                Text("有 \(report.failures.count) 个项目没能移动（通常是正在被使用），可以退出相关 App 后再试。")
+                Text(L("有 %ld 个项目没能移动（通常是正在被使用），可以退出相关 App 后再试。", report.failures.count))
                     .font(.callout).foregroundStyle(.orange)
             }
         }
@@ -29,7 +29,7 @@ extension ContentView {
             }
             if let trash = model.trashBytes, trash > 0 {
                 HStack {
-                    Label("废纸篓里还有 \(formatBytes(trash))，清空后空间才会真正释放", systemImage: "trash")
+                    Label(L("废纸篓里还有 %@，清空后空间才会真正释放", formatBytes(trash)), systemImage: "trash")
                         .font(.callout)
                     Spacer()
                     Button("打开废纸篓") {
@@ -43,7 +43,7 @@ extension ContentView {
             }
             if let batch = model.undoBatch {
                 HStack {
-                    Label("上次清理（\(batch.date.formatted(.dateTime.month().day().hour().minute()))）移走了 \(batch.moves.count) 个项目，共 \(formatBytes(batch.bytes))",
+                    Label(L("上次清理（%@）移走了 %ld 个项目，共 %@", batch.date.formatted(.dateTime.month().day().hour().minute()), batch.moves.count, formatBytes(batch.bytes)),
                           systemImage: "clock.arrow.circlepath")
                         .font(.callout)
                     Spacer()
@@ -60,22 +60,22 @@ extension ContentView {
     func summaryNumber(_ title: String, _ bytes: Int64, _ color: Color) -> some View {
         VStack(alignment: .leading, spacing: 2) {
             Text(formatBytes(bytes)).font(.title2.weight(.semibold)).monospacedDigit().foregroundStyle(color)
-            Text(title).font(.caption).foregroundStyle(.secondary)
+            Text(L(title)).font(.caption).foregroundStyle(.secondary)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
     }
 
     func undoBanner(_ r: UndoReport) -> some View {
         VStack(alignment: .leading, spacing: 4) {
-            Label("已把 \(r.restoredCount) 个项目（\(formatBytes(r.restoredBytes))）放回原处",
+            Label(L("已把 %ld 个项目（%@）放回原处", r.restoredCount, formatBytes(r.restoredBytes)),
                   systemImage: "arrow.uturn.backward.circle.fill")
                 .font(.headline).foregroundStyle(.green)
             if r.occupiedCount > 0 {
-                Text("\(r.occupiedCount) 个原位置已经有新文件（App 重新生成了），留在废纸篓里没有覆盖。")
+                Text(L("%ld 个原位置已经有新文件（App 重新生成了），留在废纸篓里没有覆盖。", r.occupiedCount))
                     .font(.callout).foregroundStyle(.secondary)
             }
             if r.goneCount > 0 {
-                Text("\(r.goneCount) 个已经从废纸篓清空，找不回来了。").font(.callout).foregroundStyle(.orange)
+                Text(L("%ld 个已经从废纸篓清空，找不回来了。", r.goneCount)).font(.callout).foregroundStyle(.orange)
             }
         }
         .padding(.vertical, 6)
@@ -88,7 +88,7 @@ extension ContentView {
                 .font(.callout)
             Spacer()
             ForEach(model.appsToReopen, id: \.self) { url in
-                Button("重新打开 \(FileManager.default.displayName(atPath: url.path))") { model.reopen([url]) }
+                Button(L("重新打开 %@", FileManager.default.displayName(atPath: url.path))) { model.reopen([url]) }
             }
         }
         .padding(.vertical, 6)

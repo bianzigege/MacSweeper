@@ -38,7 +38,7 @@ public struct RunningSnapshot: Sendable {
     public static func current() -> RunningSnapshot {
         let apps = NSWorkspace.shared.runningApplications.map { a in
             RunningApp(pid: a.processIdentifier, bundleID: a.bundleIdentifier,
-                       name: a.localizedName ?? a.bundleIdentifier ?? "相关 App", bundleURL: a.bundleURL,
+                       name: a.localizedName ?? a.bundleIdentifier ?? L("相关 App"), bundleURL: a.bundleURL,
                        executableName: a.executableURL?.lastPathComponent,
                        hasUI: a.activationPolicy != .prohibited)
         }
@@ -47,11 +47,15 @@ public struct RunningSnapshot: Sendable {
 
     /// 规则要求退出的 App（Bundle ID，或 "process:名字" 表示命令行程序）里，正在运行的那个的名字
     public func blocker(for quitApps: [String]) -> String? {
-        for entry in quitApps where entry.hasPrefix("process:") {
-            let name = String(entry.dropFirst("process:".count))
-            if processNames.contains(name) { return "命令行 \(name)" }
-        }
+        if let name = runningCommandLine(in: quitApps) { return L("命令行 %@", name) }
         return apps(forBundleIDs: quitApps).first?.name
+    }
+
+    /// quitApps 里正在运行的命令行程序（"process:名字"）。这类不会帮你结束，只提示
+    public func runningCommandLine(in quitApps: [String]) -> String? {
+        quitApps.lazy.filter { $0.hasPrefix("process:") }
+            .map { String($0.dropFirst("process:".count)) }
+            .first { processNames.contains($0) }
     }
 
     /// 这些 Bundle ID 对应的、正在运行的 App

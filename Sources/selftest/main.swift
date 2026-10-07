@@ -275,6 +275,24 @@ group("自定义规则：读取和检查") {
     check(template.problems.isEmpty && template.rules.isEmpty, "示例文件本身格式正确，而且默认停用")
 }
 
+// MARK: - 翻译
+
+group("英文翻译：每条内置规则的名称、说明、分类、工具名都有翻译") {
+    let path = fm.currentDirectoryPath + "/Resources/en.lproj/Localizable.strings"
+    guard let table = NSDictionary(contentsOfFile: path) as? [String: String] else {
+        check(false, "读不到翻译文件 \(path)（先运行 python3 scripts/translations.py）")
+        return
+    }
+    let hasChinese = { (s: String) in s.unicodeScalars.contains { (0x4E00...0x9FFF).contains($0.value) } }
+    var missing: [String] = []
+    for r in RuleBook.builtIn {
+        for text in [r.name, r.detail, r.category, r.tool ?? ""] where hasChinese(text) && table[text] == nil {
+            missing.append(text)
+        }
+    }
+    check(missing.isEmpty, "缺少翻译（加到 scripts/translations.py 里）：\(missing)")
+}
+
 // MARK: - 结果
 
 print("")

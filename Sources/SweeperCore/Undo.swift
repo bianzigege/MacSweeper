@@ -71,7 +71,7 @@ public enum Undo {
             let from = URL(fileURLWithPath: move.inTrash)
             let to = URL(fileURLWithPath: move.original)
             guard from.path.contains("/.Trash/"), allowed(to) else {
-                report.failures.append((move.original, "不在允许范围内"))
+                report.failures.append((move.original, L("不在允许范围内")))
                 continue
             }
             guard fm.fileExists(atPath: from.path) || (try? fm.destinationOfSymbolicLink(atPath: from.path)) != nil else {

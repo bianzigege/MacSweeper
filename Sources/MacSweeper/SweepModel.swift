@@ -95,7 +95,7 @@ final class SweepModel: ObservableObject {
 
     func undoLast() {
         phase = .cleaning
-        busyText = "正在把上次清理的文件放回原处…"
+        busyText = L("正在把上次清理的文件放回原处…")
         notice = nil
         lastReport = nil
         Task {
@@ -201,7 +201,7 @@ final class SweepModel: ObservableObject {
         let plan = selectedResults
         guard !plan.isEmpty else { return }
         phase = .cleaning
-        busyText = "正在移到废纸篓…"
+        busyText = L("正在移到废纸篓…")
         notice = nil
         Task {
             lastReport = await Task.detached(priority: .userInitiated) { Cleaner.moveToTrash(plan) }.value
@@ -213,14 +213,16 @@ final class SweepModel: ObservableObject {
 
     /// 挡住这条规则、可以帮你退出的 App（命令行程序不在这里，不帮你结束）。界面用，读最近一次扫描的结果
     func canQuitApps(for r: ScanResult) -> Bool {
-        guard let blocker = r.blocker, !blocker.hasPrefix("命令行") else { return false }
-        return !(lastRunning?.apps(forBundleIDs: r.rule.quitApps).isEmpty ?? true)
+        guard r.blocker != nil, let running = lastRunning,
+              running.runningCommandLine(in: r.rule.quitApps) == nil else { return false }
+        return !running.apps(forBundleIDs: r.rule.quitApps).isEmpty
     }
 
     /// 点“退出”时现查：此刻正在运行、要退出的 App
     func quittableApps(for r: ScanResult) -> [NSRunningApplication] {
-        guard let blocker = r.blocker, !blocker.hasPrefix("命令行") else { return [] }
-        return RunningSnapshot.current().apps(forBundleIDs: r.rule.quitApps)
+        let running = RunningSnapshot.current()
+        guard r.blocker != nil, running.runningCommandLine(in: r.rule.quitApps) == nil else { return [] }
+        return running.apps(forBundleIDs: r.rule.quitApps)
             .compactMap { NSRunningApplication(processIdentifier: $0.pid) }
     }
 
@@ -228,20 +230,20 @@ final class SweepModel: ObservableObject {
     func quitApps(for r: ScanResult, thenClean: Bool) {
         let apps = quittableApps(for: r)
         guard !apps.isEmpty else { return }
-        let names = apps.compactMap(\.localizedName).joined(separator: "、")
+        let names = apps.compactMap(\.localizedName).joined(separator: L("、"))
         let urls = apps.compactMap(\.bundleURL)
         phase = .cleaning
-        busyText = "正在退出 \(names)…"
+        busyText = L("正在退出 %@…", names)
         notice = nil
         Task {
             apps.forEach { $0.terminate() }
             guard await waitUntilExited(apps, seconds: 20) else {
-                notice = "\(names) 没有退出，可能在等你保存内容或确认。请切换过去处理一下，再点“重新扫描”。"
+                notice = L("%@ 没有退出，可能在等你保存内容或确认。请切换过去处理一下，再点“重新扫描”。", names)
                 scan(keepReport: true)
                 return
             }
             if thenClean {
-                busyText = "正在清理 \(r.rule.name)…"
+                busyText = L("正在清理 %@…", L(r.rule.name))
                 let rule = r.rule
                 // App 退出后重新扫一遍这一条，拿到最新的文件列表再清理
                 lastReport = await Task.detached(priority: .userInitiated) {

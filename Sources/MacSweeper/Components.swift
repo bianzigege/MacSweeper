@@ -12,7 +12,7 @@ struct SafetyBadge: View {
         case .review: ("需确认", .orange)
         case .reportOnly: ("只报告", .blue)
         }
-        Text(text)
+        Text(L(text))
             .font(.caption2.weight(.medium)).foregroundStyle(color)
             .padding(.horizontal, 5).padding(.vertical, 1)
             .background(color.opacity(0.12), in: RoundedRectangle(cornerRadius: 4))
@@ -76,6 +76,6 @@ struct CollapsibleHeader<Content: View>: View {
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
-        .help(model.isCollapsed(key) ? "展开（\(count) 项）" : "收起")
+        .help(model.isCollapsed(key) ? L("展开（%ld 项）", count) : L("收起"))
     }
 }

@@ -33,26 +33,26 @@ struct RuleRow: View {
     /// App 正在运行时的按钮：可放心清理的一步到位；需确认的只退出，让你自己挑
     private func quitButtons(_ app: String) -> some View {
         HStack(spacing: 8) {
-            Label("\(app)正在运行", systemImage: "lock.fill")
+            Label(L("%@正在运行", app), systemImage: "lock.fill")
                 .font(.caption).foregroundStyle(.orange)
             if result.rule.safety == .safe {
-                Button("退出\(app)并清理") { quitThenClean = true; confirmQuit = true }
+                Button(L("退出%@并清理", app)) { quitThenClean = true; confirmQuit = true }
                     .buttonStyle(.borderedProminent).controlSize(.small)
             } else {
-                Button("退出\(app)") { quitThenClean = false; confirmQuit = true }
+                Button(L("退出%@", app)) { quitThenClean = false; confirmQuit = true }
                     .controlSize(.small)
             }
         }
-        .confirmationDialog(quitThenClean ? "退出\(app)并清理“\(result.rule.name)”？" : "退出\(app)？",
+        .confirmationDialog(quitThenClean ? L("退出%@并清理“%@”？", app, L(result.rule.name)) : L("退出%@？", app),
                             isPresented: $confirmQuit, titleVisibility: .visible) {
-            Button(quitThenClean ? "退出并清理 \(formatBytes(result.bytes))" : "退出\(app)") {
+            Button(quitThenClean ? L("退出并清理 %@", formatBytes(result.bytes)) : L("退出%@", app)) {
                 model.quitApps(for: result, thenClean: quitThenClean)
             }
             Button("取消", role: .cancel) {}
         } message: {
             Text(quitThenClean
-                 ? "会像按 ⌘Q 一样让\(app)正常退出，然后把这一项移到废纸篓，完成后自动重新打开\(app)。"
-                 : "会像按 ⌘Q 一样让\(app)正常退出。退出后这一项就能勾选了，挑好要删的再清理。")
+                 ? L("会像按 ⌘Q 一样让%@正常退出，然后把这一项移到废纸篓，完成后自动重新打开%@。", app, app)
+                 : L("会像按 ⌘Q 一样让%@正常退出。退出后这一项就能勾选了，挑好要删的再清理。", app))
         }
     }
 
@@ -68,27 +68,27 @@ struct RuleRow: View {
                 }
                 VStack(alignment: .leading, spacing: 2) {
                     HStack(spacing: 6) {
-                        Text(result.rule.name).font(.body.weight(.medium))
+                        Text(L(result.rule.name)).font(.body.weight(.medium))
                         if result.rule.tool != nil {
                             SafetyBadge(safety: result.rule.safety)
                         } else {
-                            Text(result.rule.category)
+                            Text(L(result.rule.category))
                                 .font(.caption2).foregroundStyle(.secondary)
                                 .padding(.horizontal, 5).padding(.vertical, 1)
                                 .background(.quaternary, in: RoundedRectangle(cornerRadius: 4))
                         }
                     }
-                    Text(result.rule.detail).font(.caption).foregroundStyle(.secondary)
+                    Text(L(result.rule.detail)).font(.caption).foregroundStyle(.secondary)
                     if let app = result.blocker {
                         if !model.canQuitApps(for: result) {
-                            Label("\(app)正在运行，退出后点“重新扫描”才能清理", systemImage: "lock.fill")
+                            Label(L("%@正在运行，退出后点“重新扫描”才能清理", app), systemImage: "lock.fill")
                                 .font(.caption).foregroundStyle(.orange)
                         } else {
                             quitButtons(app)
                         }
                     }
                     if !result.skippedRunning.isEmpty {
-                        Label("已跳过正在运行的：\(result.skippedRunning.joined(separator: "、"))",
+                        Label(L("已跳过正在运行的：%@", result.skippedRunning.joined(separator: L("、"))),
                               systemImage: "forward.fill")
                             .font(.caption).foregroundStyle(.secondary)
                     }
@@ -100,7 +100,7 @@ struct RuleRow: View {
                 VStack(alignment: .trailing, spacing: 2) {
                     Text(formatBytes(result.bytes)).monospacedDigit()
                     if cleanable && model.state(of: result) == .mixed {
-                        Text("已选 \(formatBytes(model.selectedBytes(in: result)))")
+                        Text(L("已选 %@", formatBytes(model.selectedBytes(in: result))))
                             .font(.caption).foregroundStyle(.tint).monospacedDigit()
                     }
                 }
@@ -117,7 +117,7 @@ struct RuleRow: View {
                 let shown = showAll ? result.items[...] : result.items.prefix(Self.previewCount)
                 ForEach(shown, id: \.url) { item in itemRow(item) }
                 if result.items.count > Self.previewCount {
-                    Button(showAll ? "收起" : "显示全部 \(result.items.count) 项") { showAll.toggle() }
+                    Button(showAll ? L("收起") : L("显示全部 %ld 项", result.items.count)) { showAll.toggle() }
                         .buttonStyle(.link).font(.caption).padding(.leading, 26)
                 }
             }

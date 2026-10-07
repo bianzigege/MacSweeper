@@ -41,16 +41,16 @@ public enum Cleaner {
         for result in results where result.rule.safety != .reportOnly {
             // 清理那一刻再检查一次，App 正在运行就整条跳过
             if let app = running.blocker(for: result.rule.quitApps) {
-                report.failures.append((result.rule.name, "\(app) 正在运行，请先退出"))
+                report.failures.append((result.rule.name, L("%@ 正在运行，请先退出", app)))
                 continue
             }
             for item in result.items {
                 if result.rule.checksOwnerPerItem, let app = running.owner(of: item.url) {
-                    report.failures.append((item.url.path, "\(app) 正在运行，请先退出"))
+                    report.failures.append((item.url.path, L("%@ 正在运行，请先退出", app)))
                     continue
                 }
                 guard PathGuard.isAllowed(item.url) else {
-                    report.failures.append((item.url.path, "不在允许范围内"))
+                    report.failures.append((item.url.path, L("不在允许范围内")))
                     continue
                 }
                 do {

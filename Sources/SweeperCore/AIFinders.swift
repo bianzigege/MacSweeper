@@ -140,7 +140,7 @@ enum CodexFinder {
                 let url = yearURL.appendingPathComponent(month)
                 let count = fm.enumerator(atPath: url.path)?.allObjects
                     .filter { ($0 as? String)?.hasSuffix(".jsonl") == true }.count ?? 0
-                found.append(Candidate(url: url, label: "\(y) 年 \(m) 月的对话（\(count) 个）",
+                found.append(Candidate(url: url, label: L("%ld 年 %ld 月的对话（%ld 个）", y, m, count),
                                        modified: next.addingTimeInterval(-1)))
             }
         }

@@ -6,6 +6,8 @@
 
 <p align="center">安全、透明、免费的 Mac 垃圾清理工具 · 原生 SwiftUI · 只移到废纸篓，从不直接删除</p>
 
+<p align="center">中文 · <a href="README.en.md">English</a></p>
+
 ## 功能
 
 - **清理缓存和日志**：应用缓存、沙盒应用缓存、日志、npm / Rust / Gradle / Xcode 等开发缓存
@@ -20,6 +22,7 @@
 - **撤销上次清理**：一键把上次移到废纸篓的文件放回原处（App 重开后也能撤销）
 - **顶部总览**：能腾出多少、废纸篓里还有多少没清空；支持搜索和折叠分组
 - **自定义规则**：不用改代码，在规则文件里加自己的清理项
+- **中英文界面**：跟随系统语言
 
 ## 下载安装
 
@@ -89,6 +92,10 @@ SIGN_IDENTITY="Developer ID Application: 你的名字 (TEAMID)" NOTARY_PROFILE=m
 - 可选：`quitApps`（这些 App 运行时不清理）、`tool` 和 `iconApp`（放进“AI 工具与项目”分组并显示图标）、`enabled: false`（暂时停用）
 - 路径必须以 `~/` 开头；自定义规则同样受所有安全护栏保护。改完保存，点“重新扫描”生效
 
+### 翻译
+
+英文翻译在 `scripts/translations.py` 里。改了界面文字或规则后运行 `python3 scripts/translations.py`：检查每句都有翻译、占位符对得上，并生成 `Resources/en.lproj/Localizable.strings`。自检程序会检查每条内置规则都有翻译。
+
 ### 撤销
 
 界面顶部有“撤销上次清理”；命令行是 `sweep undo`。原位置已经有新文件的（比如 App 重新生成了缓存）不会覆盖。
@@ -141,7 +148,7 @@ swift build -c release
 | `Sources/SweeperCore/Scanner.swift` | 并行扫描、计算占用空间 |
 | `Sources/SweeperCore/Cleaner.swift` | 路径安全检查、移到废纸篓、操作日志 |
 | `Sources/sweep/main.swift` | 命令行界面 |
-| `Sources/MacSweeper/` | SwiftUI 图形界面（`SweepModel` 管状态，`ContentView` 管显示） |
+| `Sources/MacSweeper/` | SwiftUI 图形界面：`SweepModel` 管状态，`ContentView` 管布局，`Banners`、`RuleRow`、`Components` 是各部分 |
 | `Sources/SweeperCore/Finders.swift` | 浏览器缓存、已卸载 App 残留、大文件的查找逻辑 |
 | `Sources/SweeperCore/AIRules.swift` | AI 工具的清理规则，按工具分组 |
 | `Sources/SweeperCore/AIFinders.swift` | AI 项目和依赖、Codex 旧对话、已卸载 AI 工具的查找逻辑 |
@@ -152,6 +159,9 @@ swift build -c release
 | `Sources/SweeperCore/CustomRules.swift` | 读取和检查自定义规则 |
 | `Sources/selftest/main.swift` | 自检程序 |
 | `scripts/selftest.sh` | 运行自检 |
+| `scripts/translations.py` | 英文翻译表，检查并生成翻译文件 |
+| `Sources/SweeperCore/RunningApps.swift` | 判断哪些 App、命令行程序正在运行，文件夹属于哪个 App |
+| `Sources/SweeperCore/Localization.swift` | 翻译函数 `L()` |
 | `scripts/make-dmg.sh` | 生成分发用的 DMG 安装包，可选签名和公证 |
 
 ## 权限

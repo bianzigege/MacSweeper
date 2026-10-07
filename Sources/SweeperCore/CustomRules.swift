@@ -57,14 +57,14 @@ public enum CustomRules {
         do {
             entries = try JSONDecoder().decode([Entry].self, from: data)
         } catch {
-            result.problems.append("自定义规则文件格式不对，整个文件没有生效：\(describe(error))")
+            result.problems.append(L("自定义规则文件格式不对，整个文件没有生效：%@", describe(error)))
             return result
         }
         for (i, e) in entries.enumerated() where e.enabled != false {
             let n = i + 1
             let targets = [e.contents != nil, e.paths != nil, e.files != nil].filter { $0 }.count
             guard targets == 1 else {
-                result.problems.append("第 \(n) 条“\(e.name)”：contents、paths、files 要写其中一个，而且只写一个")
+                result.problems.append(L("第 %ld 条“%@”：contents、paths、files 要写其中一个，而且只写一个", n, e.name))
                 continue
             }
             let safety: Safety
@@ -73,12 +73,12 @@ public enum CustomRules {
             case "review": safety = .review
             case "reportOnly": safety = .reportOnly
             default:
-                result.problems.append("第 \(n) 条“\(e.name)”：safety 只能是 safe、review 或 reportOnly")
+                result.problems.append(L("第 %ld 条“%@”：safety 只能是 safe、review 或 reportOnly", n, e.name))
                 continue
             }
             let all = (e.contents.map { [$0] } ?? []) + (e.paths ?? []) + (e.files.map { [$0.in] } ?? [])
             if let bad = all.first(where: { !$0.hasPrefix("~/") }) {
-                result.problems.append("第 \(n) 条“\(e.name)”：路径要以 ~/ 开头（只能清理你的主目录里的东西）：\(bad)")
+                result.problems.append(L("第 %ld 条“%@”：路径要以 ~/ 开头（只能清理你的主目录里的东西）：%@", n, e.name, bad))
                 continue
             }
             let target: Target
@@ -96,10 +96,10 @@ public enum CustomRules {
 
     private static func describe(_ error: Error) -> String {
         switch error {
-        case DecodingError.keyNotFound(let key, _): return "缺少必填项 \(key.stringValue)"
+        case DecodingError.keyNotFound(let key, _): return L("缺少必填项 %@", key.stringValue)
         case DecodingError.typeMismatch(_, let c), DecodingError.valueNotFound(_, let c):
-            return "“\(c.codingPath.map(\.stringValue).joined(separator: "."))”的类型不对"
-        case DecodingError.dataCorrupted: return "不是有效的 JSON（检查逗号、引号、括号）"
+            return L("“%@”的类型不对", c.codingPath.map(\.stringValue).joined(separator: "."))
+        case DecodingError.dataCorrupted: return L("不是有效的 JSON（检查逗号、引号、括号）")
         default: return error.localizedDescription
         }
     }

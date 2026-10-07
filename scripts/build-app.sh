@@ -7,7 +7,7 @@
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
-VERSION="0.7.0"
+VERSION="0.8.0"
 APP="build/MacSweeper.app"
 
 for arch in arm64 x86_64; do
@@ -21,6 +21,8 @@ lipo -create -output "$APP/Contents/MacOS/MacSweeper" \
 # 图标：没有的话先运行 swift scripts/make-icon.swift 生成
 [ -f Resources/AppIcon.icns ] || swift scripts/make-icon.swift
 cp Resources/AppIcon.icns "$APP/Contents/Resources/AppIcon.icns"
+# 翻译：中文是原文，英文在 en.lproj 里；改了翻译先运行 python3 scripts/translations.py
+cp -R Resources/en.lproj Resources/zh-Hans.lproj "$APP/Contents/Resources/"
 
 cat > "$APP/Contents/Info.plist" <<EOF
 <?xml version="1.0" encoding="UTF-8"?>
@@ -34,7 +36,8 @@ cat > "$APP/Contents/Info.plist" <<EOF
     <key>CFBundlePackageType</key><string>APPL</string>
     <key>CFBundleShortVersionString</key><string>${VERSION}</string>
     <key>CFBundleVersion</key><string>${VERSION}</string>
-    <key>CFBundleDevelopmentRegion</key><string>zh_CN</string>
+    <key>CFBundleDevelopmentRegion</key><string>zh-Hans</string>
+    <key>CFBundleLocalizations</key><array><string>zh-Hans</string><string>en</string></array>
     <key>LSMinimumSystemVersion</key><string>13.0</string>
     <key>LSApplicationCategoryType</key><string>public.app-category.utilities</string>
     <key>CFBundleIconFile</key><string>AppIcon</string>
