@@ -28,6 +28,8 @@ public struct CleanReport: Sendable {
     public var trashedCount = 0
     public var trashedBytes: Int64 = 0
     public var failures: [(path: String, reason: String)] = []
+    /// 每个文件从哪里移到了废纸篓的哪里，用来撤销
+    public var moves: [TrashMove] = []
 }
 
 public enum Cleaner {
@@ -50,9 +52,13 @@ public enum Cleaner {
                     continue
                 }
                 do {
-                    try FileManager.default.trashItem(at: item.url, resultingItemURL: nil)
+                    var inTrash: NSURL?
+                    try FileManager.default.trashItem(at: item.url, resultingItemURL: &inTrash)
                     report.trashedCount += 1
                     report.trashedBytes += item.bytes
+                    if let inTrash = inTrash as URL? {
+                        report.moves.append(TrashMove(original: item.url.path, inTrash: inTrash.path, bytes: item.bytes))
+                    }
                     OperationLog.write("TRASH \(item.bytes) \(item.url.path)")
                 } catch {
                     report.failures.append((item.url.path, error.localizedDescription))
@@ -60,6 +66,8 @@ public enum Cleaner {
                 }
             }
         }
+        // 记下这一批，方便“撤销上次清理”
+        if !report.moves.isEmpty { Undo.save(TrashBatch(date: Date(), moves: report.moves)) }
         return report
     }
 }

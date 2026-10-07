@@ -5,6 +5,7 @@ import SweeperCore
 struct ContentView: View {
     @EnvironmentObject var model: SweepModel
     @State private var confirming = false
+    @State private var confirmingUndo = false
 
     var body: some View {
         VStack(spacing: 0) {
@@ -30,6 +31,13 @@ struct ContentView: View {
         } message: {
             Text("建议先退出相关 App。文件会进入废纸篓，确认电脑正常后再清空。")
         }
+        .confirmationDialog("把上次清理的 \(model.undoBatch?.moves.count ?? 0) 个项目放回原处？",
+                            isPresented: $confirmingUndo, titleVisibility: .visible) {
+            Button("放回原处") { model.undoLast() }
+            Button("取消", role: .cancel) {}
+        } message: {
+            Text("会从废纸篓里把它们移回原来的位置。原位置已经有新文件的（比如 App 重新生成了缓存）不会覆盖。")
+        }
     }
 
     // MARK: 顶部
@@ -43,9 +51,25 @@ struct ContentView: View {
                 Text("MacSweeper").font(.title2.bold())
                 Text("磁盘剩余空间：\(formatBytes(model.freeBytes))")
                     .font(.callout).foregroundStyle(.secondary)
+                    .fixedSize()
             }
             Spacer()
             if model.phase == .ready {
+                HStack(spacing: 6) {
+                    Image(systemName: "magnifyingglass").foregroundStyle(.secondary)
+                    TextField("搜索，如 微信", text: $model.query)
+                        .textFieldStyle(.plain)
+                        .frame(width: 170)
+                    if !model.query.isEmpty {
+                        Button { model.query = "" } label: { Image(systemName: "xmark.circle.fill") }
+                            .buttonStyle(.borderless).foregroundStyle(.secondary)
+                    }
+                }
+                .padding(.horizontal, 8).padding(.vertical, 5)
+                .background(.quaternary.opacity(0.6), in: RoundedRectangle(cornerRadius: 7))
+                Button { model.openCustomRules() } label: { Label("自定义规则", systemImage: "slider.horizontal.3") }
+                    .labelStyle(.iconOnly)
+                    .help("自定义规则：打开规则文件，改完保存后点“重新扫描”生效")
                 Button { model.scan() } label: { Label("重新扫描", systemImage: "arrow.clockwise") }
             }
         }
@@ -102,9 +126,23 @@ struct ContentView: View {
                 Label(notice, systemImage: "exclamationmark.triangle.fill")
                     .font(.callout).foregroundStyle(.orange).padding(.vertical, 6)
             }
+            if model.query.isEmpty { summaryCard }
+            if !model.customProblems.isEmpty {
+                VStack(alignment: .leading, spacing: 4) {
+                    Label("自定义规则有问题，下面这些没有生效：", systemImage: "exclamationmark.triangle.fill")
+                        .font(.callout.weight(.medium)).foregroundStyle(.orange)
+                    ForEach(model.customProblems, id: \.self) { Text("· " + $0).font(.callout) }
+                    Button("打开自定义规则文件") { model.openCustomRules() }.padding(.top, 2)
+                }
+                .padding(.vertical, 6)
+            }
+            if let undo = model.lastUndo { undoBanner(undo) }
             if let report = model.lastReport { reportBanner(report) }
             if !model.appsToReopen.isEmpty { reopenBanner }
             if model.needsFullDiskAccess { permissionBanner }
+            if !model.query.isEmpty && model.results.allSatisfy({ !model.matches($0) }) {
+                Text("没有找到和“\(model.query)”有关的项目").foregroundStyle(.secondary).padding(.vertical, 20)
+            }
             section(.safe, title: "可放心清理", icon: "checkmark.seal.fill", color: .green)
             section(.review, title: "需确认", icon: "exclamationmark.triangle.fill", color: .orange)
             if model.reportsPending {
@@ -123,15 +161,16 @@ struct ContentView: View {
                     .listRowSeparator(.hidden)
                 ForEach(model.toolGroups) { group in
                     Section {
-                        ForEach(group.results) { RuleRow(result: $0) }
+                        if !model.isCollapsed("tool:" + group.tool) {
+                            ForEach(group.results) { RuleRow(result: $0) }
+                        }
                     } header: {
-                        HStack(spacing: 8) {
+                        CollapsibleHeader(key: "tool:" + group.tool, count: group.results.count) {
                             AppIcon(bundleID: group.iconBundleID, name: group.tool, size: 22)
                             Text(group.tool)
                             Spacer()
                             Text(formatBytes(group.bytes))
                         }
-                        .font(.headline)
                     }
                 }
             }
@@ -142,16 +181,16 @@ struct ContentView: View {
     @ViewBuilder
     private func section(_ safety: Safety, title: String, icon: String, color: Color) -> some View {
         let rows = model.results(for: safety)
+        let key = safety.rawValue
         if !rows.isEmpty {
             Section {
-                ForEach(rows) { RuleRow(result: $0) }
+                if !model.isCollapsed(key) { ForEach(rows) { RuleRow(result: $0) } }
             } header: {
-                HStack {
+                CollapsibleHeader(key: key, count: rows.count) {
                     Label(title, systemImage: icon).foregroundStyle(color)
                     Spacer()
                     Text(formatBytes(rows.reduce(0) { $0 + $1.bytes }))
                 }
-                .font(.headline)
             }
         }
     }
@@ -166,6 +205,68 @@ struct ContentView: View {
             if !report.failures.isEmpty {
                 Text("有 \(report.failures.count) 个项目没能移动（通常是正在被使用），可以退出相关 App 后再试。")
                     .font(.callout).foregroundStyle(.orange)
+            }
+        }
+        .padding(.vertical, 6)
+    }
+
+    /// 顶部总览：能腾出多少、废纸篓还有多少、上次清理能不能撤销
+    private var summaryCard: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack(alignment: .top, spacing: 0) {
+                summaryNumber("可放心清理", model.safeBytes, .green)
+                summaryNumber("需确认", model.reviewBytes, .orange)
+                summaryNumber("要先退出 App", model.lockedBytes, .secondary)
+            }
+            if let trash = model.trashBytes, trash > 0 {
+                HStack {
+                    Label("废纸篓里还有 \(formatBytes(trash))，清空后空间才会真正释放", systemImage: "trash")
+                        .font(.callout)
+                    Spacer()
+                    Button("打开废纸篓") {
+                        NSWorkspace.shared.open(FileManager.default.homeDirectoryForCurrentUser
+                            .appendingPathComponent(".Trash"))
+                    }
+                }
+            } else if model.trashBytes == nil, model.undoBatch != nil {
+                Label("清理的文件还在废纸篓里，确认电脑正常后记得清空，空间才会真正释放", systemImage: "trash")
+                    .font(.callout)
+            }
+            if let batch = model.undoBatch {
+                HStack {
+                    Label("上次清理（\(batch.date.formatted(.dateTime.month().day().hour().minute()))）移走了 \(batch.moves.count) 个项目，共 \(formatBytes(batch.bytes))",
+                          systemImage: "clock.arrow.circlepath")
+                        .font(.callout)
+                    Spacer()
+                    Button("撤销上次清理") { confirmingUndo = true }
+                }
+            }
+        }
+        .padding(14)
+        .background(.quaternary.opacity(0.35), in: RoundedRectangle(cornerRadius: 10))
+        .listRowSeparator(.hidden)
+        .padding(.vertical, 6)
+    }
+
+    private func summaryNumber(_ title: String, _ bytes: Int64, _ color: Color) -> some View {
+        VStack(alignment: .leading, spacing: 2) {
+            Text(formatBytes(bytes)).font(.title2.weight(.semibold)).monospacedDigit().foregroundStyle(color)
+            Text(title).font(.caption).foregroundStyle(.secondary)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    private func undoBanner(_ r: UndoReport) -> some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Label("已把 \(r.restoredCount) 个项目（\(formatBytes(r.restoredBytes))）放回原处",
+                  systemImage: "arrow.uturn.backward.circle.fill")
+                .font(.headline).foregroundStyle(.green)
+            if r.occupiedCount > 0 {
+                Text("\(r.occupiedCount) 个原位置已经有新文件（App 重新生成了），留在废纸篓里没有覆盖。")
+                    .font(.callout).foregroundStyle(.secondary)
+            }
+            if r.goneCount > 0 {
+                Text("\(r.goneCount) 个已经从废纸篓清空，找不回来了。").font(.callout).foregroundStyle(.orange)
             }
         }
         .padding(.vertical, 6)
@@ -424,5 +525,28 @@ struct AppIcon: View {
         let image = NSWorkspace.shared.icon(forFile: url.path)
         cache[id] = image
         return image
+    }
+}
+
+/// 可以点击收起/展开的分组标题
+struct CollapsibleHeader<Content: View>: View {
+    @EnvironmentObject var model: SweepModel
+    let key: String
+    let count: Int
+    @ViewBuilder let content: Content
+
+    var body: some View {
+        Button { withAnimation(.easeOut(duration: 0.15)) { model.toggleCollapsed(key) } } label: {
+            HStack(spacing: 8) {
+                Image(systemName: "chevron.right")
+                    .font(.caption.weight(.semibold)).foregroundStyle(.secondary)
+                    .rotationEffect(.degrees(model.isCollapsed(key) ? 0 : 90))
+                content
+            }
+            .font(.headline)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .help(model.isCollapsed(key) ? "展开（\(count) 项）" : "收起")
     }
 }

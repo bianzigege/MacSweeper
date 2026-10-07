@@ -24,12 +24,82 @@ final class SweepModel: ObservableObject {
     @Published var reportsPending = false
     /// 每次扫描加一；旧的扫描结果晚到了就丢掉
     private var scanGeneration = 0
+    /// 搜索框里的字
+    @Published var query = ""
+    /// 收起来的分组
+    @Published var collapsed: Set<String> = []
+    /// 废纸篓现在占多少（没有权限读取时为 nil）
+    @Published var trashBytes: Int64?
+    /// 上一次清理的记录，可以撤销
+    @Published var undoBatch: TrashBatch? = Undo.lastBatch()
+    @Published var lastUndo: UndoReport?
+    /// 自定义规则文件里有问题的地方
+    @Published var customProblems: [String] = []
 
     init() { refreshFreeSpace() }
 
     /// 普通规则（不属于某个 AI 工具），按安全等级分组
     func results(for safety: Safety) -> [ScanResult] {
-        results.filter { $0.rule.safety == safety && $0.rule.tool == nil }
+        results.filter { $0.rule.safety == safety && $0.rule.tool == nil && matches($0) }
+    }
+
+    /// 搜索：规则名、说明、所属工具、具体项目的名字和路径，任何一个包含搜索词就显示
+    func matches(_ r: ScanResult) -> Bool {
+        let q = query.trimmingCharacters(in: .whitespaces)
+        guard !q.isEmpty else { return true }
+        let fields = [r.rule.name, r.rule.detail, r.rule.tool ?? ""]
+            + r.items.prefix(500).flatMap { [$0.displayName, $0.url.path] }
+        return fields.contains { $0.localizedCaseInsensitiveContains(q) }
+    }
+
+    /// 分组是否收起；搜索时全部展开
+    func isCollapsed(_ key: String) -> Bool { query.isEmpty && collapsed.contains(key) }
+
+    func toggleCollapsed(_ key: String) {
+        if collapsed.contains(key) { collapsed.remove(key) } else { collapsed.insert(key) }
+    }
+
+    // MARK: 顶部总览
+
+    /// 能直接清理的（不是只报告、App 没在运行）
+    var safeBytes: Int64 { bytes { $0.rule.safety == .safe && isCleanable($0) } }
+    var reviewBytes: Int64 { bytes { $0.rule.safety == .review && isCleanable($0) } }
+    /// 要先退出 App 才能清理的
+    var lockedBytes: Int64 { bytes { $0.rule.safety != .reportOnly && $0.blocker != nil } }
+
+    private func bytes(_ include: (ScanResult) -> Bool) -> Int64 {
+        results.filter(include).reduce(0) { $0 + $1.bytes }
+    }
+
+    func refreshTrash() {
+        undoBatch = Undo.lastBatch()
+        Task {
+            let trash = FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent(".Trash")
+            trashBytes = await Task.detached(priority: .utility) { () -> Int64? in
+                // 没有“完全磁盘访问权限”时读不了废纸篓
+                guard (try? FileManager.default.contentsOfDirectory(atPath: trash.path)) != nil else { return nil }
+                return Scanner.allocatedSize(of: trash)
+            }.value
+        }
+    }
+
+    /// 打开自定义规则文件（没有就先建一份带示例的）
+    func openCustomRules() {
+        let file = CustomRules.createTemplateIfNeeded()
+        let editor = NSWorkspace.shared.urlForApplication(toOpen: file)
+            ?? URL(fileURLWithPath: "/System/Applications/TextEdit.app")
+        NSWorkspace.shared.open([file], withApplicationAt: editor, configuration: .init()) { _, _ in }
+    }
+
+    func undoLast() {
+        phase = .cleaning
+        busyText = "正在把上次清理的文件放回原处…"
+        notice = nil
+        lastReport = nil
+        Task {
+            lastUndo = await Task.detached(priority: .userInitiated) { Undo.restoreLast() }.value
+            scan(keepReport: true)
+        }
     }
 
     struct ToolGroup: Identifiable {
@@ -48,7 +118,7 @@ final class SweepModel: ObservableObject {
     var toolGroups: [ToolGroup] {
         let order: [Safety] = [.safe, .review, .reportOnly]
         var groups: [String: [ScanResult]] = [:]
-        for r in results { if let t = r.rule.tool { groups[t, default: []].append(r) } }
+        for r in results where matches(r) { if let t = r.rule.tool { groups[t, default: []].append(r) } }
         let built = groups.map { tool, rs in
             ToolGroup(tool: tool, iconBundleID: rs.first?.rule.iconBundleID,
                       results: rs.sorted { order.firstIndex(of: $0.rule.safety)! < order.firstIndex(of: $1.rule.safety)! })
@@ -84,10 +154,12 @@ final class SweepModel: ObservableObject {
         phase = .scanning
         progress = (0, 0, "")
         reportsPending = true
-        if !keepReport { lastReport = nil; notice = nil }
+        if !keepReport { lastReport = nil; notice = nil; lastUndo = nil }
         scanGeneration += 1
         let generation = scanGeneration
-        let all = RuleBook.all
+        let custom = CustomRules.load()
+        customProblems = custom.problems
+        let all = RuleBook.builtIn + custom.rules
         Task {
             let session = ScanSession()
             // 第一轮：能清理的规则，扫完马上显示
@@ -100,6 +172,7 @@ final class SweepModel: ObservableObject {
             }.value
             guard generation == scanGeneration else { return }
             show(first)
+            refreshTrash()
             // 默认只勾选“可放心清理”、而且相关 App 没在运行的
             selected = Set(results.filter { $0.rule.safety == .safe && isCleanable($0) }
                 .flatMap { $0.items.map(\.url) })
@@ -113,11 +186,12 @@ final class SweepModel: ObservableObject {
             guard generation == scanGeneration else { return }
             show(first + second)
             reportsPending = false
+            refreshTrash()
         }
     }
 
     private func show(_ found: [ScanResult]) {
-        results = ScanSession.ordered(found).filter { !$0.items.isEmpty || !$0.unreadable.isEmpty }
+        results = ScanSession.ordered(found, like: RuleBook.builtIn + CustomRules.load().rules).filter { !$0.items.isEmpty || !$0.unreadable.isEmpty }
     }
 
     func clean() {

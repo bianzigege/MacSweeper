@@ -198,6 +198,57 @@ group("运行检查") {
     check(RunningApps.blocker(for: []) == nil, "没要求退出的不挡")
 }
 
+// MARK: - 撤销
+
+group("撤销：从废纸篓放回原处") {
+    // 用临时目录里的“假废纸篓”，不碰你真正的废纸篓
+    let a = makeFile(".Trash/cache-a", bytes: 50)
+    let b = makeFile(".Trash/cache-b")
+    makeFile("restore/occupied")                       // 原位置已经有同名文件
+    let moves = [
+        TrashMove(original: sandbox.path + "/restore/deep/cache-a", inTrash: a.path, bytes: 50),
+        TrashMove(original: sandbox.path + "/restore/occupied", inTrash: b.path, bytes: 10),
+        TrashMove(original: sandbox.path + "/restore/gone", inTrash: sandbox.path + "/.Trash/emptied", bytes: 10),
+        TrashMove(original: sandbox.path + "/restore/x", inTrash: sandbox.path + "/not-trash/x", bytes: 10),
+    ]
+    let r = Undo.restore(moves, allowed: { _ in true })
+    check(fm.fileExists(atPath: sandbox.path + "/restore/deep/cache-a"), "放回原处，缺的上级文件夹会补上")
+    check(!fm.fileExists(atPath: a.path), "废纸篓里的那份移走了")
+    check(r.restoredCount == 1 && r.restoredBytes == 50, "统计还原了 1 个")
+    check(r.occupiedCount == 1 && fm.fileExists(atPath: b.path), "原位置有东西就不覆盖，留在废纸篓")
+    check(r.goneCount == 1, "废纸篓已清空的算“找不到”")
+    check(r.failures.count == 1, "来源不在废纸篓里的不处理")
+    let blocked = Undo.restore([TrashMove(original: "/System/x", inTrash: b.path, bytes: 1)])
+    check(blocked.failures.count == 1 && fm.fileExists(atPath: b.path), "不往主目录以外放")
+}
+
+// MARK: - 自定义规则
+
+group("自定义规则：读取和检查") {
+    let json = """
+    [
+      {"name": "好的", "contents": "~/Library/Caches/foo", "safety": "safe", "quitApps": ["com.x"]},
+      {"name": "默认需确认", "paths": ["~/a/*.log"]},
+      {"name": "按扩展名", "files": {"in": "~/Downloads", "extensions": ["ZIP"]}},
+      {"name": "停用的", "paths": ["~/x"], "enabled": false},
+      {"name": "两个目标", "paths": ["~/x"], "contents": "~/y"},
+      {"name": "主目录外", "paths": ["/System/Library"]},
+      {"name": "等级写错", "paths": ["~/x"], "safety": "danger"}
+    ]
+    """
+    let r = CustomRules.parse(Data(json.utf8))
+    check(r.rules.map(\.name) == ["好的", "默认需确认", "按扩展名"], "合格的规则读进来，停用的跳过（实际：\(r.rules.map(\.name))）")
+    check(r.rules.first?.safety == .safe && r.rules.first?.quitApps == ["com.x"], "安全等级和要退出的 App 读对了")
+    check(r.rules.dropFirst().first?.safety == .review, "没写等级的默认“需确认”")
+    if case let .files(_, exts) = r.rules.last?.target { check(exts == ["zip"], "扩展名统一小写") } else { check(false, "按扩展名的规则类型不对") }
+    check(r.problems.count == 3, "三条有问题的都报出来了（实际：\(r.problems)）")
+    check(r.problems.contains { $0.contains("主目录外") && $0.contains("~/") }, "主目录以外的路径会被拒绝")
+    let broken = CustomRules.parse(Data("[{\"name\": \"少逗号\" \"paths\": []}]".utf8))
+    check(broken.rules.isEmpty && broken.problems.first?.contains("不是有效的 JSON") == true, "格式错误时给出看得懂的提示")
+    let template = CustomRules.parse(Data(CustomRules.template.utf8))
+    check(template.problems.isEmpty && template.rules.isEmpty, "示例文件本身格式正确，而且默认停用")
+}
+
 // MARK: - 结果
 
 print("")

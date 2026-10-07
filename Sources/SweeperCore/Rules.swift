@@ -100,7 +100,9 @@ public enum RuleBook {
     static let wechat = "~/Library/Containers/com.tencent.xinWeChat/Data/Documents"
     static let chrome = "~/Library/Application Support/Google/Chrome"
 
-    public static let all: [Rule] = general + aiTools
+    /// 内置规则 + 自定义规则。每次用到都重新读自定义规则文件，改完重新扫描就生效
+    public static var all: [Rule] { builtIn + CustomRules.load().rules }
+    public static let builtIn: [Rule] = general + aiTools
 
     static let general: [Rule] = [
         // MARK: 系统

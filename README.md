@@ -17,6 +17,9 @@
 - **图标不打包进项目**：各 AI 工具的图标在运行时从你电脑上已安装的 App 里读取，仓库里不存放任何其他公司的 logo
 - **逐项勾选**：每一类都能展开，看清楚每个文件夹的大小和修改时间再决定
 - **App 正在运行时自动跳过**它的文件；也可以一键“退出 App 并清理”，清理完自动重新打开
+- **撤销上次清理**：一键把上次移到废纸篓的文件放回原处（App 重开后也能撤销）
+- **顶部总览**：能腾出多少、废纸篓里还有多少没清空；支持搜索和折叠分组
+- **自定义规则**：不用改代码，在规则文件里加自己的清理项
 
 ## 下载安装
 
@@ -67,13 +70,36 @@ SIGN_IDENTITY="Developer ID Application: 你的名字 (TEAMID)" NOTARY_PROFILE=m
 
 脚本会自动正式签名、提交苹果公证并把公证结果附到 DMG 上。
 
+### 自定义规则
+
+点界面右上角的规则按钮（或者直接编辑 `~/Library/Application Support/MacSweeper/自定义规则.json`），第一次会生成一份带示例的文件。每条规则的写法：
+
+```json
+{
+  "name": "某某 App 的缓存",
+  "detail": "说明文字（可选）",
+  "safety": "review",
+  "contents": "~/Library/Application Support/某某/Cache",
+  "quitApps": ["com.example.app"]
+}
+```
+
+- `safety`：`safe`（可放心清理）/ `review`（需确认，默认）/ `reportOnly`（只报告）
+- 目标三选一：`contents`（清理目录里的每一项）、`paths`（清理这些路径，可以用 `*`）、`files`（如 `{"in": "~/Downloads", "extensions": ["zip"]}`）
+- 可选：`quitApps`（这些 App 运行时不清理）、`tool` 和 `iconApp`（放进“AI 工具与项目”分组并显示图标）、`enabled: false`（暂时停用）
+- 路径必须以 `~/` 开头；自定义规则同样受所有安全护栏保护。改完保存，点“重新扫描”生效
+
+### 撤销
+
+界面顶部有“撤销上次清理”；命令行是 `sweep undo`。原位置已经有新文件的（比如 App 重新生成了缓存）不会覆盖。
+
 ### 自检
 
 ```bash
 ./scripts/selftest.sh
 ```
 
-检查安全护栏、残留判断、浏览器缓存识别、去重、大小计算、运行检查等 43 项关键逻辑。测试文件都建在临时目录里，不碰真实文件；不需要 Xcode。改了 `SweeperCore` 之后先跑一遍。
+检查安全护栏、残留判断、浏览器缓存识别、去重、大小计算、运行检查、撤销、自定义规则等 58 项关键逻辑。测试文件都建在临时目录里，不碰真实文件；不需要 Xcode。改了 `SweeperCore` 之后先跑一遍。
 
 ### 命令行
 
@@ -122,6 +148,8 @@ swift build -c release
 | `scripts/build-app.sh` | 把图形界面打包成 .app |
 | `scripts/make-icon.swift` | 生成 App 图标 |
 | `Sources/SweeperCore/SizeCalculator.swift` | 计算占用空间：用底层 fts 遍历，并记住算过的文件夹 |
+| `Sources/SweeperCore/Undo.swift` | 撤销上次清理 |
+| `Sources/SweeperCore/CustomRules.swift` | 读取和检查自定义规则 |
 | `Sources/selftest/main.swift` | 自检程序 |
 | `scripts/selftest.sh` | 运行自检 |
 | `scripts/make-dmg.sh` | 生成分发用的 DMG 安装包，可选签名和公证 |

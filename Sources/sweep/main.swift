@@ -8,6 +8,9 @@ let usage = """
   sweep clean               清理所有“可放心清理”的项目（会先列出并询问确认）
   sweep clean <规则ID>...    只清理指定规则，例如：sweep clean user-caches npm-cache
   sweep clean --dry-run     只预览将要清理的内容，不做任何改动
+  sweep undo                撤销上一次清理：把文件从废纸篓放回原处
+
+自定义规则：\(CustomRules.file.path)
 
 清理是把文件移到废纸篓，确认没问题后再自己清空废纸篓。
 操作日志：\(OperationLog.url.path)
@@ -86,6 +89,7 @@ if let first = args.first, !first.hasPrefix("-") {
 
 switch command {
 case "scan":
+    for problem in CustomRules.load().problems { print("⚠️  " + problem) }
     let results = scanWithProgress()
     printTable(results, detail: args.contains("--detail"))
     let cleanable = results.filter { $0.rule.safety == .safe }.reduce(Int64(0)) { $0 + $1.bytes }
@@ -128,6 +132,21 @@ case "clean":
         for f in report.failures.prefix(5) { print("  \(f.path)：\(f.reason)") }
     }
     print("确认电脑一切正常后，再清空废纸篓才会真正释放空间。")
+
+case "undo":
+    guard let batch = Undo.lastBatch() else {
+        print("没有可以撤销的清理（还没清理过，或者废纸篓已经清空了）。")
+        exit(0)
+    }
+    let f = DateFormatter(); f.dateFormat = "M 月 d 日 HH:mm"
+    print("上次清理：\(f.string(from: batch.date))，移走了 \(batch.moves.count) 个项目（\(formatBytes(batch.bytes))）。")
+    print("确认放回原处请输入 y 并回车：", terminator: " ")
+    guard readLine()?.lowercased() == "y" else { print("已取消。"); exit(0) }
+    let r = Undo.restoreLast()!
+    print("已放回 \(r.restoredCount) 个（\(formatBytes(r.restoredBytes))）。")
+    if r.occupiedCount > 0 { print("\(r.occupiedCount) 个原位置已经有新文件（App 重新生成了），留在废纸篓里没有覆盖。") }
+    if r.goneCount > 0 { print("\(r.goneCount) 个已经从废纸篓清空，找不回来了。") }
+    for f in r.failures.prefix(5) { print("  没能放回 \(f.path)：\(f.reason)") }
 
 case "help", "-h", "--help":
     print(usage)
