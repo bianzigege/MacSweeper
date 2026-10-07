@@ -67,6 +67,14 @@ SIGN_IDENTITY="Developer ID Application: 你的名字 (TEAMID)" NOTARY_PROFILE=m
 
 脚本会自动正式签名、提交苹果公证并把公证结果附到 DMG 上。
 
+### 自检
+
+```bash
+./scripts/selftest.sh
+```
+
+检查安全护栏、残留判断、浏览器缓存识别、去重、大小计算、运行检查等 43 项关键逻辑。测试文件都建在临时目录里，不碰真实文件；不需要 Xcode。改了 `SweeperCore` 之后先跑一遍。
+
 ### 命令行
 
 ```bash
@@ -113,6 +121,9 @@ swift build -c release
 | `Sources/SweeperCore/AIFinders.swift` | AI 项目和依赖、Codex 旧对话、已卸载 AI 工具的查找逻辑 |
 | `scripts/build-app.sh` | 把图形界面打包成 .app |
 | `scripts/make-icon.swift` | 生成 App 图标 |
+| `Sources/SweeperCore/SizeCalculator.swift` | 计算占用空间：用底层 fts 遍历，并记住算过的文件夹 |
+| `Sources/selftest/main.swift` | 自检程序 |
+| `scripts/selftest.sh` | 运行自检 |
 | `scripts/make-dmg.sh` | 生成分发用的 DMG 安装包，可选签名和公证 |
 
 ## 权限

@@ -39,16 +39,48 @@ public struct ScanResult: Sendable, Identifiable {
     }
 }
 
-public enum Scanner {
-    /// 并行扫描所有规则，结果按规则原顺序返回
-    public static func scan(_ rules: [Rule] = RuleBook.all) -> [ScanResult] {
+/// 一次扫描：几轮扫描共用同一个大小计算器（记住算过的文件夹）
+public final class ScanSession: @unchecked Sendable {
+    let sizes = SizeCalculator()
+    /// 同时扫几条规则。实测 6 条最快：再多会互相抢硬盘，反而变慢
+    static let concurrency = 6
+
+    public init() {}
+
+    /// 扫这些规则；每扫完一条调用一次 progress（已完成数、总数、规则名），在后台线程调用
+    public func scan(_ rules: [Rule], progress: (@Sendable (Int, Int, String) -> Void)? = nil) -> [ScanResult] {
         var results = [ScanResult?](repeating: nil, count: rules.count)
+        var done = 0
         let lock = NSLock()
-        DispatchQueue.concurrentPerform(iterations: rules.count) { i in
-            let r = scan(rule: rules[i])
-            lock.lock(); results[i] = r; lock.unlock()
+        let queue = OperationQueue()
+        queue.maxConcurrentOperationCount = Self.concurrency
+        for (i, rule) in rules.enumerated() {
+            queue.addOperation { [sizes] in
+                let r = Scanner.scan(rule: rule, sizes: sizes)
+                lock.lock(); results[i] = r; done += 1; let n = done; lock.unlock()
+                progress?(n, rules.count, rule.name)
+            }
         }
-        return dedupe(results.compactMap { $0 })
+        queue.waitUntilAllOperationsAreFinished()
+        return Scanner.dedupe(results.compactMap { $0 })
+    }
+
+    /// 按规则在 RuleBook 里的顺序排好
+    public static func ordered(_ results: [ScanResult], like rules: [Rule] = RuleBook.all) -> [ScanResult] {
+        let index = Dictionary(uniqueKeysWithValues: rules.enumerated().map { ($1.id, $0) })
+        return results.sorted { (index[$0.rule.id] ?? .max) < (index[$1.rule.id] ?? .max) }
+    }
+}
+
+public enum Scanner {
+    /// 扫描所有规则，结果按规则原顺序返回。
+    /// 分两轮：先扫能清理的规则，再扫“只报告”的大类（如“微信数据（全部）”），
+    /// 两轮共用一个大小计算器，第二轮遇到第一轮算过的文件夹直接用结果
+    public static func scan(_ rules: [Rule] = RuleBook.all) -> [ScanResult] {
+        let session = ScanSession()
+        let first = session.scan(rules.filter { $0.safety != .reportOnly })
+        let second = session.scan(rules.filter { $0.safety == .reportOnly })
+        return ScanSession.ordered(first + second, like: rules)
     }
 
     /// 同一个文件可能被几条规则找到（比如大文件也是下载的安装包，浏览器缓存也在已卸载工具的文件夹里）。
@@ -76,6 +108,10 @@ public enum Scanner {
     }
 
     public static func scan(rule: Rule) -> ScanResult {
+        scan(rule: rule, sizes: SizeCalculator())
+    }
+
+    static func scan(rule: Rule, sizes: SizeCalculator) -> ScanResult {
         var unreadable: [String] = []
         var found = candidates(for: rule.target, unreadable: &unreadable)
         var skipped = Set<String>()
@@ -89,7 +125,7 @@ public enum Scanner {
         let items = found.compactMap { c -> Item? in
             // 只报告的规则可以看主目录以外（比如“应用程序”里的旧版备份），反正不会去删
             guard rule.safety == .reportOnly || PathGuard.isAllowed(c.url) else { return nil }
-            let size = allocatedSize(of: c.url)
+            let size = sizes.size(of: c.url)
             // 失效链接本身几乎不占空间，但仍然要列出来
             if case .brokenLinks = rule.target {} else { guard size > 0 else { return nil } }
             let modified = c.modified
@@ -171,21 +207,7 @@ public enum Scanner {
 
     /// 实际占用的磁盘空间（不跟随符号链接，和“显示简介”里的“磁盘上”一致）
     public static func allocatedSize(of url: URL) -> Int64 {
-        let keys: Set<URLResourceKey> = [.isSymbolicLinkKey, .isDirectoryKey, .totalFileAllocatedSizeKey]
-        guard let v = try? url.resourceValues(forKeys: keys) else { return 0 }
-        if v.isSymbolicLink == true { return 0 }
-        if v.isDirectory != true { return Int64(v.totalFileAllocatedSize ?? 0) }
-
-        var total: Int64 = 0
-        let e = FileManager.default.enumerator(
-            at: url, includingPropertiesForKeys: Array(keys),
-            options: [], errorHandler: { _, _ in true })
-        while let child = e?.nextObject() as? URL {
-            if let cv = try? child.resourceValues(forKeys: keys), cv.isSymbolicLink != true {
-                total += Int64(cv.totalFileAllocatedSize ?? 0)
-            }
-        }
-        return total
+        SizeCalculator().size(of: url)
     }
 
     static func expand(_ path: String) -> URL {

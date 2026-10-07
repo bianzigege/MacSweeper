@@ -72,32 +72,44 @@ enum ProjectFinder {
         }
     }
 
-    /// 走一遍项目：记下依赖目录（不进去），其余文件里最新的修改时间就是项目最后活跃的时间
-    private static func inspect(_ root: URL) -> Project {
+    /// App、照片图库这类“看起来是一个文件”的包，不进去，按一个整体看它的修改时间
+    static let packageExtensions: Set<String> = [
+        "app", "bundle", "framework", "photoslibrary", "xcarchive", "fcpbundle", "logicx", "rtfd", "pkg",
+    ]
+
+    /// 走一遍项目：记下依赖目录（不进去），其余文件里最新的修改时间就是项目最后活跃的时间。
+    /// 用 fts 遍历，比逐个读文件信息快
+    static func inspect(_ root: URL) -> Project {
         var deps: [URL] = []
-        var newest = Date.distantPast
-        var stack = [root]
+        var newest: Int = 0   // 秒
         let fm = FileManager.default
-        while let dir = stack.popLast() {
-            guard let names = try? fm.contentsOfDirectory(atPath: dir.path) else { continue }
-            let siblings = Set(names)
-            for name in names where name != ".git" && name != ".DS_Store" {
-                let url = dir.appendingPathComponent(name)
+        FTS.walk(root.path) { entry, path, level in
+            let name = (path as NSString).lastPathComponent
+            let mtime = Int(entry.pointee.fts_statp.pointee.st_mtimespec.tv_sec)
+            switch Int32(entry.pointee.fts_info) {
+            case FTS_D:
+                guard level > 0 else { return .next }
+                if name == ".git" { return .skip }
+                let parent = (path as NSString).deletingLastPathComponent
                 if alwaysDependency.contains(name)
-                    || dependencyIfSibling[name].map(siblings.contains) == true
-                    || ((name == ".venv" || name == "venv") && fm.fileExists(atPath: url.path + "/pyvenv.cfg")) {
-                    deps.append(url)
-                    continue
+                    || dependencyIfSibling[name].map({ fm.fileExists(atPath: parent + "/" + $0) }) == true
+                    || ((name == ".venv" || name == "venv") && fm.fileExists(atPath: path + "/pyvenv.cfg")) {
+                    deps.append(URL(fileURLWithPath: path))
+                    return .skip
                 }
-                if isPlainDirectory(url) {
-                    stack.append(url)
-                } else if let m = (try? url.resourceValues(forKeys: [.contentModificationDateKey]))?
-                            .contentModificationDate, m > newest {
-                    newest = m
+                if packageExtensions.contains((name as NSString).pathExtension.lowercased()) {
+                    newest = max(newest, mtime)
+                    return .skip
                 }
+            case FTS_F, FTS_DEFAULT:
+                if name != ".DS_Store" { newest = max(newest, mtime) }
+            default:
+                break
             }
+            return .next
         }
-        return Project(url: root, lastActive: newest, dependencies: deps)
+        let lastActive = newest > 0 ? Date(timeIntervalSince1970: TimeInterval(newest)) : .distantPast
+        return Project(url: root, lastActive: lastActive, dependencies: deps)
     }
 
     private static func isPlainDirectory(_ url: URL) -> Bool {

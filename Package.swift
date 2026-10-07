@@ -16,5 +16,7 @@ let package = Package(
         .executableTarget(name: "sweep", dependencies: ["SweeperCore"]),
         // SwiftUI 图形界面，用 scripts/build-app.sh 打包成 .app
         .executableTarget(name: "MacSweeper", dependencies: ["SweeperCore"]),
+        // 自检程序：检查安全相关的关键逻辑，用 scripts/selftest.sh 运行（不需要 Xcode）
+        .executableTarget(name: "selftest", dependencies: ["SweeperCore"]),
     ]
 )

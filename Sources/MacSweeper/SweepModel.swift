@@ -18,6 +18,12 @@ final class SweepModel: ObservableObject {
     @Published var notice: String?
     /// 被我们退出、还没重新打开的 App
     @Published var appsToReopen: [URL] = []
+    /// 扫描进度：已完成、总数、刚扫完的规则名
+    @Published var progress: (done: Int, total: Int, name: String) = (0, 0, "")
+    /// “只报告”的大类还在后台统计
+    @Published var reportsPending = false
+    /// 每次扫描加一；旧的扫描结果晚到了就丢掉
+    private var scanGeneration = 0
 
     init() { refreshFreeSpace() }
 
@@ -76,16 +82,42 @@ final class SweepModel: ObservableObject {
 
     func scan(keepReport: Bool = false) {
         phase = .scanning
+        progress = (0, 0, "")
+        reportsPending = true
         if !keepReport { lastReport = nil; notice = nil }
+        scanGeneration += 1
+        let generation = scanGeneration
+        let all = RuleBook.all
         Task {
-            let found = await Task.detached(priority: .userInitiated) { Scanner.scan() }.value
-            results = found.filter { !$0.items.isEmpty || !$0.unreadable.isEmpty }
+            let session = ScanSession()
+            // 第一轮：能清理的规则，扫完马上显示
+            let first = await Task.detached(priority: .userInitiated) {
+                session.scan(all.filter { $0.safety != .reportOnly }) { done, total, name in
+                    Task { @MainActor in
+                        if generation == self.scanGeneration { self.progress = (done, total, name) }
+                    }
+                }
+            }.value
+            guard generation == scanGeneration else { return }
+            show(first)
             // 默认只勾选“可放心清理”、而且相关 App 没在运行的
             selected = Set(results.filter { $0.rule.safety == .safe && isCleanable($0) }
                 .flatMap { $0.items.map(\.url) })
             refreshFreeSpace()
             phase = .ready
+
+            // 第二轮：“只报告”的大类（如微信数据全部），在后台算完再补上
+            let second = await Task.detached(priority: .utility) {
+                session.scan(all.filter { $0.safety == .reportOnly })
+            }.value
+            guard generation == scanGeneration else { return }
+            show(first + second)
+            reportsPending = false
         }
+    }
+
+    private func show(_ found: [ScanResult]) {
+        results = ScanSession.ordered(found).filter { !$0.items.isEmpty || !$0.unreadable.isEmpty }
     }
 
     func clean() {

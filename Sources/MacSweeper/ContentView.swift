@@ -12,7 +12,7 @@ struct ContentView: View {
             Divider()
             switch model.phase {
             case .idle: emptyState
-            case .scanning: busy("正在扫描，大约需要半分钟…")
+            case .scanning: scanningView
             case .cleaning: busy(model.busyText)
             case .ready: resultList
             }
@@ -71,6 +71,21 @@ struct ContentView: View {
         .padding()
     }
 
+    private var scanningView: some View {
+        VStack(spacing: 12) {
+            if model.progress.total > 0 {
+                ProgressView(value: Double(model.progress.done), total: Double(model.progress.total))
+                    .frame(width: 320)
+                Text("正在扫描（\(model.progress.done)/\(model.progress.total)）：\(model.progress.name)")
+                    .foregroundStyle(.secondary).monospacedDigit()
+            } else {
+                ProgressView()
+                Text("正在准备扫描…").foregroundStyle(.secondary)
+            }
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+
     private func busy(_ text: String) -> some View {
         VStack(spacing: 12) {
             ProgressView()
@@ -92,6 +107,14 @@ struct ContentView: View {
             if model.needsFullDiskAccess { permissionBanner }
             section(.safe, title: "可放心清理", icon: "checkmark.seal.fill", color: .green)
             section(.review, title: "需确认", icon: "exclamationmark.triangle.fill", color: .orange)
+            if model.reportsPending {
+                HStack(spacing: 8) {
+                    ProgressView().controlSize(.small)
+                    Text("正在统计各应用的总占用（微信、Chrome 等），上面的可以先清理")
+                        .font(.callout).foregroundStyle(.secondary)
+                }
+                .padding(.vertical, 6)
+            }
             section(.reportOnly, title: "只报告，请在对应 App 里清理", icon: "info.circle.fill", color: .blue)
             if !model.toolGroups.isEmpty {
                 Text("AI 工具与项目")

@@ -35,6 +35,12 @@ enum ChromiumCacheFinder {
         "Service Worker/CacheStorage", "Service Worker/ScriptCache",
     ]
 
+    /// 这些文件夹又大又不可能是浏览器配置（网站数据、程序依赖等），不进去找
+    static let heavyDirs: Set<String> = [
+        "node_modules", "vm_bundles", "IndexedDB", "File System", "blob_storage", "Local Storage",
+        "Session Storage", "WebStorage", "databases", "Extensions", "shared_proto_db", "Sessions",
+    ]
+
     /// 在 roots 下找 Chromium 配置目录（有 Preferences 文件的目录），返回其中的缓存目录
     static func find(roots: [String], excluding: [String]) -> [URL] {
         let excluded = Set(excluding.map { Scanner.expand($0).path })
@@ -58,9 +64,11 @@ enum ChromiumCacheFinder {
                     found.append(url)
                 }
             }
+            // 配置目录里还可能嵌套别的配置目录（如 Codex/Default、Partitions/xxx），继续往下找，
+            // 但下面 heavyDirs 里的网站数据文件夹不进去
         }
         let skip = Set(cacheDirs.map { String($0.split(separator: "/")[0]) })
-        for name in names where !name.hasPrefix(".") && !skip.contains(name) {
+        for name in names where !name.hasPrefix(".") && !skip.contains(name) && !heavyDirs.contains(name) {
             let url = dir.appendingPathComponent(name)
             let v = try? url.resourceValues(forKeys: [.isDirectoryKey, .isSymbolicLinkKey, .isPackageKey])
             if v?.isDirectory == true, v?.isSymbolicLink != true, v?.isPackage != true {
@@ -252,7 +260,9 @@ enum AppInventory {
 func isProcessRunning(_ name: String) -> Bool {
     let p = Process()
     p.executableURL = URL(fileURLWithPath: "/usr/bin/pgrep")
-    p.arguments = ["-x", name]
+    // -a：把启动 MacSweeper 的上级进程也算上。不加的话，在 Codex 里运行命令行版时，
+    // pgrep 会故意忽略 Codex 本身，误以为它没在运行
+    p.arguments = ["-a", "-x", name]
     p.standardOutput = FileHandle.nullDevice
     p.standardError = FileHandle.nullDevice
     guard (try? p.run()) != nil else { return false }
