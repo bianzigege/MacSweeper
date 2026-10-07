@@ -40,7 +40,7 @@ let label: [Safety: String] = [.safe: "✅ 可放心清理", .review: "⚠️  �
 
 func printTable(_ results: [ScanResult], detail: Bool) {
     for safety in [Safety.safe, .review, .reportOnly] {
-        let group = results.filter { $0.rule.safety == safety && ($0.bytes > 0 || !$0.unreadable.isEmpty) }
+        let group = results.filter { $0.rule.safety == safety && (!$0.items.isEmpty || !$0.unreadable.isEmpty) }
         guard !group.isEmpty else { continue }
         let total = group.reduce(Int64(0)) { $0 + $1.bytes }
         print("\n\(label[safety]!)  合计 \(formatBytes(total))")

@@ -15,8 +15,35 @@ final class SweepModel: ObservableObject {
 
     init() { refreshFreeSpace() }
 
+    /// 普通规则（不属于某个 AI 工具），按安全等级分组
     func results(for safety: Safety) -> [ScanResult] {
-        results.filter { $0.rule.safety == safety }
+        results.filter { $0.rule.safety == safety && $0.rule.tool == nil }
+    }
+
+    struct ToolGroup: Identifiable {
+        let tool: String
+        let iconBundleID: String?
+        let results: [ScanResult]
+        var id: String { tool }
+        /// 有“（全部）”那一条就用它的大小，否则把各条加起来
+        var bytes: Int64 {
+            results.first { $0.rule.safety == .reportOnly && $0.rule.name.hasSuffix("（全部）") }?.bytes
+                ?? results.filter { $0.rule.safety != .reportOnly }.reduce(0) { $0 + $1.bytes }
+        }
+    }
+
+    /// AI 工具的规则按工具分组：装着的工具按占用从大到小，后面跟项目、已卸载工具、命令行
+    var toolGroups: [ToolGroup] {
+        let order: [Safety] = [.safe, .review, .reportOnly]
+        var groups: [String: [ScanResult]] = [:]
+        for r in results { if let t = r.rule.tool { groups[t, default: []].append(r) } }
+        let built = groups.map { tool, rs in
+            ToolGroup(tool: tool, iconBundleID: rs.first?.rule.iconBundleID,
+                      results: rs.sorted { order.firstIndex(of: $0.rule.safety)! < order.firstIndex(of: $1.rule.safety)! })
+        }
+        let tail = ["DeskClaw", "AI 做的项目", "已卸载的 AI 工具", "命令行"]
+        return built.filter { !tail.contains($0.tool) }.sorted { $0.bytes > $1.bytes }
+            + tail.compactMap { t in built.first { $0.tool == t } }
     }
 
     enum CheckState { case on, off, mixed }
@@ -46,7 +73,7 @@ final class SweepModel: ObservableObject {
         if !keepReport { lastReport = nil }
         Task {
             let found = await Task.detached(priority: .userInitiated) { Scanner.scan() }.value
-            results = found.filter { $0.bytes > 0 || !$0.unreadable.isEmpty }
+            results = found.filter { !$0.items.isEmpty || !$0.unreadable.isEmpty }
             // 默认只勾选“可放心清理”、而且相关 App 没在运行的
             selected = Set(results.filter { $0.rule.safety == .safe && isCleanable($0) }
                 .flatMap { $0.items.map(\.url) })

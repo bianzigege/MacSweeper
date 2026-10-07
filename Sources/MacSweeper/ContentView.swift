@@ -88,6 +88,25 @@ struct ContentView: View {
             section(.safe, title: "可放心清理", icon: "checkmark.seal.fill", color: .green)
             section(.review, title: "需确认", icon: "exclamationmark.triangle.fill", color: .orange)
             section(.reportOnly, title: "只报告，请在对应 App 里清理", icon: "info.circle.fill", color: .blue)
+            if !model.toolGroups.isEmpty {
+                Text("AI 工具与项目")
+                    .font(.title3.bold())
+                    .padding(.top, 14)
+                    .listRowSeparator(.hidden)
+                ForEach(model.toolGroups) { group in
+                    Section {
+                        ForEach(group.results) { RuleRow(result: $0) }
+                    } header: {
+                        HStack(spacing: 8) {
+                            AppIcon(bundleID: group.iconBundleID, name: group.tool, size: 22)
+                            Text(group.tool)
+                            Spacer()
+                            Text(formatBytes(group.bytes))
+                        }
+                        .font(.headline)
+                    }
+                }
+            }
         }
         .listStyle(.inset)
     }
@@ -197,10 +216,14 @@ struct RuleRow: View {
                 VStack(alignment: .leading, spacing: 2) {
                     HStack(spacing: 6) {
                         Text(result.rule.name).font(.body.weight(.medium))
-                        Text(result.rule.category)
-                            .font(.caption2).foregroundStyle(.secondary)
-                            .padding(.horizontal, 5).padding(.vertical, 1)
-                            .background(.quaternary, in: RoundedRectangle(cornerRadius: 4))
+                        if result.rule.tool != nil {
+                            SafetyBadge(safety: result.rule.safety)
+                        } else {
+                            Text(result.rule.category)
+                                .font(.caption2).foregroundStyle(.secondary)
+                                .padding(.horizontal, 5).padding(.vertical, 1)
+                                .background(.quaternary, in: RoundedRectangle(cornerRadius: 4))
+                        }
                     }
                     Text(result.rule.detail).font(.caption).foregroundStyle(.secondary)
                     if let app = result.blocker {
@@ -273,5 +296,60 @@ struct RuleRow: View {
                 .help("在访达中显示")
         }
         .padding(.leading, 26)
+    }
+}
+
+/// AI 工具里每条规则的安全等级小标签
+struct SafetyBadge: View {
+    let safety: Safety
+
+    var body: some View {
+        let (text, color): (String, Color) = switch safety {
+        case .safe: ("可放心清理", .green)
+        case .review: ("需确认", .orange)
+        case .reportOnly: ("只报告", .blue)
+        }
+        Text(text)
+            .font(.caption2.weight(.medium)).foregroundStyle(color)
+            .padding(.horizontal, 5).padding(.vertical, 1)
+            .background(color.opacity(0.12), in: RoundedRectangle(cornerRadius: 4))
+    }
+}
+
+/// 读取电脑上已安装 App 的图标；没装的显示首字母。
+/// 图标在运行时从 App 本身读取，项目里不存放任何其他公司的 logo
+struct AppIcon: View {
+    let bundleID: String?
+    let name: String
+    let size: CGFloat
+
+    private static var cache: [String: NSImage] = [:]
+
+    var body: some View {
+        if let image = Self.icon(for: bundleID) {
+            Image(nsImage: image).resizable().frame(width: size, height: size)
+        } else {
+            RoundedRectangle(cornerRadius: size * 0.24, style: .continuous)
+                .fill(.quaternary)
+                .frame(width: size * 0.86, height: size * 0.86)
+                .overlay(Text(String(name.prefix(1))).font(.system(size: size * 0.45, weight: .semibold))
+                            .foregroundStyle(.secondary))
+                .frame(width: size, height: size)
+        }
+    }
+
+    static func icon(for bundleID: String?) -> NSImage? {
+        guard let id = bundleID else { return nil }
+        if let cached = cache[id] { return cached }
+        // 有点号的按 Bundle ID 找，否则按 App 名字在“应用程序”里找
+        let url = id.contains(".")
+            ? NSWorkspace.shared.urlForApplication(withBundleIdentifier: id)
+            : ["/Applications", NSHomeDirectory() + "/Applications"]
+                .map { URL(fileURLWithPath: $0).appendingPathComponent(id + ".app") }
+                .first { FileManager.default.fileExists(atPath: $0.path) }
+        guard let url else { return nil }
+        let image = NSWorkspace.shared.icon(forFile: url.path)
+        cache[id] = image
+        return image
     }
 }

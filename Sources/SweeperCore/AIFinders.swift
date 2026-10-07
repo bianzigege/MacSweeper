@@ -170,3 +170,63 @@ enum ToolTraceFinder {
         return false
     }
 }
+
+// MARK: - 旧版本
+
+enum VersionFinder {
+    /// 每个目录下按版本号命名的子文件夹（如 2.1.288、2.1.289），保留最新的，其余列出来。
+    /// 正在被运行中的程序用到的版本也跳过
+    static func olderVersions(in dirs: [String]) -> [Candidate] {
+        let running = runningCommandLines()
+        var found: [Candidate] = []
+        for dir in dirs {
+            let base = Scanner.expand(dir)
+            let versions = ((try? FileManager.default.contentsOfDirectory(atPath: base.path)) ?? [])
+                .filter { $0.first?.isNumber == true }
+                .sorted { $0.compare($1, options: .numeric) == .orderedAscending }
+            for v in versions.dropLast() {
+                let url = base.appendingPathComponent(v)
+                if running.contains(where: { $0.contains(url.path + "/") }) { continue }
+                found.append(Candidate(url: url, label: "\(base.lastPathComponent) \(v)"))
+            }
+        }
+        return found
+    }
+
+    /// 所有正在运行的进程的完整命令行
+    static func runningCommandLines() -> [String] {
+        let p = Process()
+        p.executableURL = URL(fileURLWithPath: "/bin/ps")
+        p.arguments = ["-axo", "command"]
+        let pipe = Pipe()
+        p.standardOutput = pipe
+        p.standardError = FileHandle.nullDevice
+        guard (try? p.run()) != nil else { return [] }
+        let data = pipe.fileHandleForReading.readDataToEndOfFile()
+        p.waitUntilExit()
+        return String(decoding: data, as: UTF8.self).split(separator: "\n").map(String.init)
+    }
+}
+
+// MARK: - 失效的命令链接
+
+enum BrokenLinkFinder {
+    /// 目录里的符号链接，指向的文件已经不存在（App 删了，命令还留着）
+    static func find(in dirs: [String]) -> [Candidate] {
+        let fm = FileManager.default
+        var found: [Candidate] = []
+        for dir in dirs {
+            let base = Scanner.expand(dir)
+            for name in (try? fm.contentsOfDirectory(atPath: base.path)) ?? [] {
+                let url = base.appendingPathComponent(name)
+                guard let target = try? fm.destinationOfSymbolicLink(atPath: url.path) else { continue }
+                let resolved = target.hasPrefix("/") ? target
+                    : (base.path as NSString).appendingPathComponent(target)
+                if !fm.fileExists(atPath: resolved) {
+                    found.append(Candidate(url: url, label: "\(name) → \(target)"))
+                }
+            }
+        }
+        return found
+    }
+}

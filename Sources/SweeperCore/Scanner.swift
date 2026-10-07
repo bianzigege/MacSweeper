@@ -90,7 +90,8 @@ public enum Scanner {
             // 只报告的规则可以看主目录以外（比如“应用程序”里的旧版备份），反正不会去删
             guard rule.safety == .reportOnly || PathGuard.isAllowed(c.url) else { return nil }
             let size = allocatedSize(of: c.url)
-            guard size > 0 else { return nil }
+            // 失效链接本身几乎不占空间，但仍然要列出来
+            if case .brokenLinks = rule.target {} else { guard size > 0 else { return nil } }
             let modified = c.modified
                 ?? (try? c.url.resourceValues(forKeys: [.contentModificationDateKey]))?.contentModificationDate
             if let days = rule.minAgeDays, let m = modified,
@@ -113,6 +114,10 @@ public enum Scanner {
             return CodexFinder.oldSessionMonths(olderThanDays: olderThanDays)
         case let .uninstalledTools(traces):
             return ToolTraceFinder.find(traces)
+        case let .olderVersions(dirs):
+            return VersionFinder.olderVersions(in: dirs)
+        case let .brokenLinks(dirs):
+            return BrokenLinkFinder.find(in: dirs)
         default:
             return urls(for: target, unreadable: &unreadable).map { Candidate(url: $0) }
         }
@@ -159,7 +164,7 @@ public enum Scanner {
         case let .largeFiles(minBytes):
             return LargeFileFinder.find(minBytes: minBytes)
 
-        case .projectDependencies, .staleProjects, .codexSessions, .uninstalledTools:
+        case .projectDependencies, .staleProjects, .codexSessions, .uninstalledTools, .olderVersions, .brokenLinks:
             return []   // 在 candidates 里处理
         }
     }
