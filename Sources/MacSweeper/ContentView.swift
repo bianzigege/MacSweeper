@@ -8,7 +8,7 @@ struct ContentView: View {
     @State private var tab: Tab = .clean
     @State private var dropTargeted = false
 
-    enum Tab { case clean, uninstall }
+    enum Tab { case clean, uninstall, duplicates }
     @State private var confirming = false
     @State var confirmingUndo = false
 
@@ -18,6 +18,8 @@ struct ContentView: View {
             Divider()
             if tab == .uninstall {
                 UninstallView()
+            } else if tab == .duplicates {
+                DuplicatesView()
             } else {
                 switch model.phase {
                 case .idle: emptyState
@@ -102,6 +104,7 @@ struct ContentView: View {
                     Picker("", selection: $tab) {
                         Text(L("清理垃圾")).tag(Tab.clean)
                         Text(L("卸载 App")).tag(Tab.uninstall)
+                        Text(L("重复文件")).tag(Tab.duplicates)
                     }
                     .pickerStyle(.segmented).labelsHidden().fixedSize()
                 }

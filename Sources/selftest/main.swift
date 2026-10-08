@@ -404,6 +404,40 @@ group("卸载：哪些 App 不能卸载") {
           "App 名 + 常见后缀的算")
 }
 
+// MARK: - 重复文件
+
+group("重复文件：只认内容完全一样的") {
+    let d = makeDir("Dupes")
+    func write(_ rel: String, _ data: Data) { let u = d.appendingPathComponent(rel)
+        try? fm.createDirectory(at: u.deletingLastPathComponent(), withIntermediateDirectories: true)
+        fm.createFile(atPath: u.path, contents: data) }
+    var x = Data(count: 300_000); x[150_000] = 1
+    var y = x; y[150_000] = 2                      // 大小一样、开头结尾也一样，只有中间不同
+    write("one.bin", x)
+    write("sub/one (1).bin", x)                    // 真正的重复，名字像副本
+    write("other.bin", y)                          // 不算重复
+    write("node_modules/lib.bin", x)               // 程序依赖里的，不管
+    try fm.linkItem(at: d.appendingPathComponent("one.bin"), to: d.appendingPathComponent("hardlink.bin"))   // 硬链接，同一个文件
+    let clone = Process(); clone.executableURL = URL(fileURLWithPath: "/bin/cp")
+    clone.arguments = ["-c", d.appendingPathComponent("one.bin").path, d.appendingPathComponent("clone.bin").path]
+    try clone.run(); clone.waitUntilExit()       // APFS 克隆，共用硬盘空间
+
+    let groups = DuplicateFinder.find(roots: [d], minBytes: 1000)
+    check(groups.count == 1, "只有一组重复（实际 \(groups.count) 组）")
+    let names = Set(groups.first?.files.map(\.url.lastPathComponent) ?? [])
+    check(names.contains("one (1).bin") && names.contains("clone.bin"), "内容一样的认出来了（实际：\(names.sorted())）")
+    check(!names.contains("other.bin"), "大小、开头结尾都一样但中间不同的，不算重复")
+    check(!names.contains("lib.bin"), "程序依赖里的不管")
+    check(names.contains("hardlink.bin") != names.contains("one.bin"), "硬链接是同一个文件的两个名字，只算一次")
+    if let g = groups.first {
+        check(g.wastedBytes == 300_000, "克隆副本不算可腾出的空间：只算真正多占的那一份（实际 \(g.wastedBytes)）")
+        check(g.suggestedKeep.url.lastPathComponent != "one (1).bin", "建议保留的不是名字像副本的那份")
+        // 整组都勾上：必须拒绝，什么都不动
+        let r = DuplicateCleaner.trash([g], selected: Set(g.files.map(\.url)))
+        check(r.trashedCount == 0 && g.files.allSatisfy { fm.fileExists(atPath: $0.url.path) }, "整组都勾上时拒绝删除，每组至少留一份")
+    }
+}
+
 // MARK: - 翻译
 
 group("英文翻译：每条内置规则的名称、说明、分类、工具名都有翻译") {

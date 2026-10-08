@@ -8,6 +8,7 @@ struct MacSweeperApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) private var delegate
     @StateObject private var model = SweepModel()
     @StateObject private var uninstall = UninstallModel()
+    @StateObject private var duplicates = DuplicatesModel()
 
     init() {
         // 直接用 swift run 启动时也能正常显示窗口和程序坞图标
@@ -20,6 +21,7 @@ struct MacSweeperApp: App {
             ContentView()
                 .environmentObject(model)
                 .environmentObject(uninstall)
+                .environmentObject(duplicates)
                 .frame(minWidth: 680, minHeight: 560)
         }
         .windowResizability(.contentMinSize)

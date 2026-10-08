@@ -9,6 +9,7 @@ let usage = """
   sweep clean <规则ID>...    只清理指定规则，例如：sweep clean user-caches npm-cache
   sweep clean --dry-run     只预览将要清理的内容，不做任何改动
   sweep undo                撤销上一次清理（或卸载）：把文件从废纸篓放回原处
+  sweep dupes               找重复文件（只列出来，不删）
   sweep apps                列出已安装的 App，很久没用的排前面
   sweep uninstall <App名>   卸载 App：先列出相关文件，确认后移到废纸篓
   sweep uninstall <App名> --dry-run   只预览，不做任何改动
@@ -150,6 +151,24 @@ case "undo":
     if r.occupiedCount > 0 { print("\(r.occupiedCount) 个原位置已经有新文件（App 重新生成了），留在废纸篓里没有覆盖。") }
     if r.goneCount > 0 { print("\(r.goneCount) 个已经从废纸篓清空，找不回来了。") }
     for f in r.failures.prefix(5) { print("  没能放回 \(f.path)：\(f.reason)") }
+
+case "dupes":
+    let start = Date()
+    let groups = DuplicateFinder.find { p in
+        if p.total > 0 && p.done % 20 == 0 { FileHandle.standardError.write(Data("\r\(p.phase) \(p.done)/\(p.total)   ".utf8)) }
+    }
+    FileHandle.standardError.write(Data("\n".utf8))
+    let saving = groups.reduce(Int64(0)) { $0 + $1.wastedBytes }
+    let clones = groups.filter(\.allClones)
+    print("找到 \(groups.count) 组重复文件，每组只留一份能腾出 \(formatBytes(saving))（用时 \(Int(Date().timeIntervalSince(start))) 秒）")
+    if !clones.isEmpty { print("其中 \(clones.count) 组是克隆副本（共用硬盘空间），删了不省空间，已经不算在里面") }
+    for g in groups.prefix(15) {
+        print("\n" + lpad(formatBytes(g.size), 10) + " × \(g.files.count) 份" + (g.allClones ? "（克隆副本，删了不省空间）" : "，可腾出 \(formatBytes(g.wastedBytes))"))
+        for f in g.files {
+            let mark = f == g.suggestedKeep ? "  留 " : "     "
+            print(mark + f.url.path.replacingOccurrences(of: NSHomeDirectory(), with: "~"))
+        }
+    }
 
 case "apps":
     let apps = AppCatalog.list().sorted {
