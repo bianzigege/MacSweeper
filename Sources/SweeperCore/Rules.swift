@@ -99,6 +99,7 @@ public struct Rule: Sendable, Identifiable {
 public enum RuleBook {
     static let wechat = "~/Library/Containers/com.tencent.xinWeChat/Data/Documents"
     static let chrome = "~/Library/Application Support/Google/Chrome"
+    static let feishuContainer = "~/Library/Containers/com.bytedance.macos.feishu/Data"
 
     /// 内置规则 + 自定义规则。每次用到都重新读自定义规则文件，改完重新扫描就生效
     public static var all: [Rule] { builtIn + CustomRules.load().rules }
@@ -144,6 +145,19 @@ public enum RuleBook {
              detail: "按月份存放的聊天图片、视频缓存。删除后，旧消息里的部分图片可能需要重新下载，或者已经过期看不了",
              target: .contents(of: "\(wechat)/xwechat_files/*/cache"),
              quitApps: ["com.tencent.xinWeChat"]),
+
+        // MARK: 飞书（两个版本：国内版 Lark.app 是沙盒 App，国际版 LarkSuite.app 不是）
+        Rule(id: "feishu-browser", name: "飞书内置浏览器缓存", category: "飞书", safety: .safe,
+             detail: "飞书文档、网页和小程序的缓存（在沙盒容器里，往往有几十 GB）。不影响聊天记录和文件",
+             target: .chromiumCaches(roots: [feishuContainer + "/Library/Application Support/LarkShell/aha/users"]),
+             quitApps: ["com.bytedance.macos.feishu"]),
+        Rule(id: "larksuite-browser", name: "Lark 国际版内置浏览器缓存", category: "飞书", safety: .safe,
+             detail: "LarkSuite 的文档和网页缓存，不影响聊天记录和文件",
+             target: .chromiumCaches(roots: ["~/Library/Application Support/LarkInternational"]),
+             quitApps: ["com.larksuite.larkApp"]),
+        Rule(id: "feishu", name: "飞书数据（全部）", category: "大应用", safety: .reportOnly,
+             detail: "包含上面的飞书缓存。其余是聊天记录和文件，请在 飞书 → 设置 → 通用 → 存储空间 里清理",
+             target: .paths([feishuContainer, "~/Library/Application Support/LarkInternational"])),
 
         // MARK: 浏览器
         Rule(id: "chrome-cache", name: "Chrome 网页缓存", category: "浏览器", safety: .safe,

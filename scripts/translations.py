@@ -145,6 +145,15 @@ EN = {
     "微信图片视频缓存": "WeChat image & video cache",
     "按月份存放的聊天图片、视频缓存。删除后，旧消息里的部分图片可能需要重新下载，或者已经过期看不了":
         "Chat image and video cache, by month. Afterwards, some images in old messages may need to be downloaded again or may have expired",
+    "飞书": "Feishu",
+    "飞书内置浏览器缓存": "Feishu built-in browser cache",
+    "飞书文档、网页和小程序的缓存（在沙盒容器里，往往有几十 GB）。不影响聊天记录和文件":
+        "Cache of Feishu docs, web pages and mini-programs (inside its sandbox, often tens of GB). Chats and files are not affected",
+    "Lark 国际版内置浏览器缓存": "Lark (international) built-in browser cache",
+    "LarkSuite 的文档和网页缓存，不影响聊天记录和文件": "Docs and web cache of LarkSuite. Chats and files are not affected",
+    "飞书数据（全部）": "Feishu data (all)",
+    "包含上面的飞书缓存。其余是聊天记录和文件，请在 飞书 → 设置 → 通用 → 存储空间 里清理":
+        "Includes the Feishu caches above. The rest is chats and files; manage them in Feishu → Settings → General → Storage",
     "Chrome 网页缓存": "Chrome web cache",
     "网站的离线缓存和脚本缓存，不影响书签、密码和登录状态":
         "Offline and script caches of websites. Bookmarks, passwords, and sign-ins are not affected",
