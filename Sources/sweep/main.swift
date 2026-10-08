@@ -10,6 +10,7 @@ let usage = """
   sweep clean --dry-run     只预览将要清理的内容，不做任何改动
   sweep undo                撤销上一次清理（或卸载）：把文件从废纸篓放回原处
   sweep dupes               找重复文件（只列出来，不删）
+  sweep map [文件夹]         空间地图：一层层看哪里占得最多（只看，不删）
   sweep apps                列出已安装的 App，很久没用的排前面
   sweep uninstall <App名>   卸载 App：先列出相关文件，确认后移到废纸篓
   sweep uninstall <App名> --dry-run   只预览，不做任何改动
@@ -151,6 +152,25 @@ case "undo":
     if r.occupiedCount > 0 { print("\(r.occupiedCount) 个原位置已经有新文件（App 重新生成了），留在废纸篓里没有覆盖。") }
     if r.goneCount > 0 { print("\(r.goneCount) 个已经从废纸篓清空，找不回来了。") }
     for f in r.failures.prefix(5) { print("  没能放回 \(f.path)：\(f.reason)") }
+
+case "map":
+    let root = args.first { !$0.hasPrefix("-") }.map { URL(fileURLWithPath: ($0 as NSString).expandingTildeInPath) }
+        ?? FileManager.default.homeDirectoryForCurrentUser
+    let start = Date()
+    let tree = DiskMap.build(root: root) { p in
+        FileHandle.standardError.write(Data("\r已扫描 \(p.files) 个文件，\(formatBytes(p.bytes))   ".utf8))
+    }
+    FileHandle.standardError.write(Data("\n".utf8))
+    print("\(root.path.replacingOccurrences(of: NSHomeDirectory(), with: "~")) 一共 \(formatBytes(tree.size))（用时 \(Int(Date().timeIntervalSince(start))) 秒）")
+    func show(_ node: DiskNode, _ depth: Int) {
+        for child in node.children.prefix(depth == 0 ? 12 : 4) {
+            let pct = node.size > 0 ? Double(child.size) / Double(node.size) * 100 : 0
+            print(String(repeating: "    ", count: depth + 1) + lpad(formatBytes(child.size), 10)
+                  + String(format: " %4.1f%%  ", pct) + child.name + (child.kind == .folder ? "/" : ""))
+            if depth < 1 && child.kind == .folder { show(child, depth + 1) }
+        }
+    }
+    show(tree, 0)
 
 case "dupes":
     let start = Date()

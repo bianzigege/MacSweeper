@@ -9,6 +9,7 @@ struct MacSweeperApp: App {
     @StateObject private var model = SweepModel()
     @StateObject private var uninstall = UninstallModel()
     @StateObject private var duplicates = DuplicatesModel()
+    @StateObject private var diskMap = DiskMapModel()
 
     init() {
         // 直接用 swift run 启动时也能正常显示窗口和程序坞图标
@@ -22,6 +23,7 @@ struct MacSweeperApp: App {
                 .environmentObject(model)
                 .environmentObject(uninstall)
                 .environmentObject(duplicates)
+                .environmentObject(diskMap)
                 .frame(minWidth: 680, minHeight: 560)
         }
         .windowResizability(.contentMinSize)

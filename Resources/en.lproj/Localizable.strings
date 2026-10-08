@@ -289,6 +289,16 @@
 "撤销" = "Undo";
 "和留下的那份内容已经不一样了，没有删" = "No longer identical to the copy being kept, so it wasn't removed";
 "这一组没有留下任何一份，为了安全整组跳过" = "No copy in this group would be kept, so the whole group was skipped for safety";
+"空间地图" = "Space Map";
+"看看空间都被谁占了" = "See what's taking up your space";
+"扫描整个主目录，用色块显示每个文件夹、文件占多大。点色块可以一层层往里看。只看，不删。" = "Scans your whole home folder and shows how big each folder and file is as blocks. Click a block to look inside. View only, nothing is deleted.";
+"已扫描 %ld 个文件，%@" = "Scanned %ld files, %@";
+"整个主目录大约要半分钟" = "The whole home folder takes about half a minute";
+"主目录" = "Home";
+"其他小文件" = "Other small files";
+"看看里面" = "Look Inside";
+"点一下看看里面" = "Click to look inside";
+"只看，不删。要清理请用“清理垃圾”“重复文件”，或者在访达里自己处理。" = "View only. To clean up, use Clean Up or Duplicates, or handle it yourself in Finder.";
 "%@ 已经从“应用程序”里移走了，这些是它留下的。勾选你要一起移到废纸篓的文件。" = "%@ has been removed from Applications. These are the files it left behind; check the ones to move to the Trash too.";
 "%@ 没有留下需要清理的文件" = "%@ didn't leave anything that needs cleaning";
 "App 进废纸篓时提醒清理残留" = "Offer cleanup when an app is trashed";

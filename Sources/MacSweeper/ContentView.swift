@@ -8,7 +8,7 @@ struct ContentView: View {
     @State private var tab: Tab = .clean
     @State private var dropTargeted = false
 
-    enum Tab { case clean, uninstall, duplicates }
+    enum Tab { case clean, uninstall, duplicates, map }
     @State private var confirming = false
     @State var confirmingUndo = false
 
@@ -20,6 +20,8 @@ struct ContentView: View {
                 UninstallView()
             } else if tab == .duplicates {
                 DuplicatesView()
+            } else if tab == .map {
+                DiskMapView()
             } else {
                 switch model.phase {
                 case .idle: emptyState
@@ -105,6 +107,7 @@ struct ContentView: View {
                         Text(L("清理垃圾")).tag(Tab.clean)
                         Text(L("卸载 App")).tag(Tab.uninstall)
                         Text(L("重复文件")).tag(Tab.duplicates)
+                        Text(L("空间地图")).tag(Tab.map)
                     }
                     .pickerStyle(.segmented).labelsHidden().fixedSize()
                 }

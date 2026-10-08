@@ -20,6 +20,8 @@
 - **逐项勾选**：每一类都能展开，看清楚每个文件夹的大小和修改时间再决定
 - **App 正在运行时自动跳过**它的文件；也可以一键“退出 App 并清理”，清理完自动重新打开
 - **卸载 App**：列出很久没用的 App；选中后按 ⌘⌫（或右键、或把 App 拖进窗口/程序坞图标）打开确认清单，App 和它的缓存、设置、开机自启项一起移到废纸篓，可以撤销
+- **重复文件**：逐字节比对内容找出重复文件，识别 APFS 克隆副本（删了不省空间），跳过项目文件夹和 App 数据；默认不勾，每组至少留一份
+- **空间地图**：用色块显示主目录里每个文件夹、文件占多大，点进去一层层看（只看不删）
 - **撤销上次清理**：一键把上次移到废纸篓的文件放回原处（App 重开后也能撤销）
 - **顶部总览**：能腾出多少、废纸篓里还有多少没清空；支持搜索和折叠分组
 - **自定义规则**：不用改代码，在规则文件里加自己的清理项
@@ -116,6 +118,20 @@ SIGN_IDENTITY="Developer ID Application: 你的名字 (TEAMID)" NOTARY_PROFILE=m
 
 安全措施：还装着另一份同 ID 的 App（比如 Claude 和它的旧版备份）时，只移走这一份 App 本体，缓存设置都不动；苹果自带的 App、MacSweeper 自己、你加进保护名单的 App（右键菜单）不能卸载；正在运行的要先退出；确认窗口的默认按钮是“取消”，回车和 Esc 都只会取消；勾选了超过 100MB 可能有你数据的项目会再确认一次；归系统所有的 App 由 macOS 弹出它自己的密码框；全部只移到废纸篓，可以“撤销这次卸载”。用 Homebrew 装的 App 会提示你改用 `brew uninstall`。
 
+### 重复文件
+
+切到“重复文件”，点“开始查找”。只看桌面、文稿、下载、影片等文件夹里 1MB 以上的文件；先比大小，再比开头结尾，最后逐字节比对内容，名字不同也能找出来。
+
+- **克隆副本**（比如在访达里按 ⌘D 复制的）在硬盘上共用一份空间，会单独标注，不算进可腾出的空间
+- **不碰**：项目文件夹（每个项目都要用自己那份字体、图片）、node_modules 等程序依赖、App 自己管理的缓存和媒体库（剪映、音乐 App 等）
+- 默认**一个都不勾**。“每组只留一份”会保留建议的那份（优先不在“下载”里、名字不像“(1)”“副本”的，再选最早的），其余勾上
+- 每组至少留一份，勾不了全部；清理前再核对一遍内容，后来改过的不删；可以撤销
+- 命令行：`sweep dupes`（只列出来）
+
+### 空间地图
+
+切到“空间地图”，点“开始扫描”（整个主目录大约半分钟）。色块越大占得越多，点文件夹的色块往里看，顶部路径可以点回去，右边是从大到小的清单。硬链接只算一次。只看不删，右键可以在访达中显示。命令行：`sweep map [文件夹]`。
+
 ### 撤销
 
 界面顶部有“撤销上次清理”；命令行是 `sweep undo`。原位置已经有新文件的（比如 App 重新生成了缓存）不会覆盖。
@@ -126,7 +142,7 @@ SIGN_IDENTITY="Developer ID Application: 你的名字 (TEAMID)" NOTARY_PROFILE=m
 ./scripts/selftest.sh
 ```
 
-检查安全护栏、残留判断、浏览器缓存识别、去重、大小计算、运行检查、撤销、自定义规则、卸载 App、拖进废纸篓提醒等 99 项关键逻辑。测试文件都建在临时目录里，不碰真实文件；不需要 Xcode。改了 `SweeperCore` 之后先跑一遍。
+检查安全护栏、残留判断、浏览器缓存识别、去重、大小计算、运行检查、撤销、自定义规则、卸载 App、拖进废纸篓提醒、重复文件、空间地图等 116 项关键逻辑。测试文件都建在临时目录里，不碰真实文件；不需要 Xcode。改了 `SweeperCore` 之后先跑一遍。
 
 ### 命令行
 
@@ -178,6 +194,8 @@ swift build -c release
 | `Sources/SweeperCore/Undo.swift` | 撤销上次清理 |
 | `Sources/SweeperCore/Uninstaller.swift` | 卸载 App：App 清单、找相关文件并分组、执行卸载 |
 | `Sources/MacSweeper/UninstallModel.swift`、`UninstallView.swift` | 卸载 App 的界面 |
+| `Sources/SweeperCore/Duplicates.swift`、`Sources/MacSweeper/Duplicates*.swift` | 重复文件 |
+| `Sources/SweeperCore/DiskMap.swift`、`Sources/MacSweeper/DiskMapView.swift` | 空间地图（含色块排列算法） |
 | `Sources/SweeperCore/CustomRules.swift` | 读取和检查自定义规则 |
 | `Sources/selftest/main.swift` | 自检程序 |
 | `scripts/selftest.sh` | 运行自检 |

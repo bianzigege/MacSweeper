@@ -438,6 +438,43 @@ group("重复文件：只认内容完全一样的") {
     }
 }
 
+// MARK: - 空间地图
+
+group("空间地图：大小和层级") {
+    makeFile("Map/big.bin", bytes: 3_000_000)
+    makeFile("Map/folder/a.bin", bytes: 2_000_000)
+    makeFile("Map/folder/b.bin", bytes: 1_000_000)
+    for i in 0..<5 { makeFile("Map/folder/small\(i).txt", bytes: 10_000) }
+    try fm.linkItem(at: sandbox.appendingPathComponent("Map/big.bin"), to: sandbox.appendingPathComponent("Map/folder/big-link.bin"))
+    let tree = DiskMap.build(root: sandbox.appendingPathComponent("Map"), minNodeBytes: 500_000)
+    let real = SizeCalculator().size(of: sandbox.appendingPathComponent("Map"))
+    check(tree.size == real, "总大小和逐个算的一致（\(tree.size) vs \(real)）")
+    check(tree.size < 7_000_000, "硬链接只算一次（实际 \(tree.size)）")
+    check(tree.children.map(\.size) == tree.children.map(\.size).sorted(by: >), "子项从大到小排")
+    let folder = tree.children.first { $0.name == "folder" }
+    check(folder?.children.contains { $0.kind == .others } == true, "小文件合进“其他小文件”")
+    check(folder.map { $0.children.reduce(0) { $0 + $1.size } == $0.size } == true, "每层子项加起来等于这一层的大小")
+}
+
+group("空间地图：色块排列") {
+    let sizes: [Int64] = [500, 250, 120, 80, 30, 15, 5]
+    let rects = Treemap.layout(sizes, width: 400, height: 300)
+    check(rects.count == sizes.count, "每个都有一块")
+    let total = Double(sizes.reduce(0, +))
+    let proportional = rects.allSatisfy { r in
+        abs(r.width * r.height - Double(sizes[r.index]) / total * 120_000) < 1
+    }
+    check(proportional, "面积和大小成正比")
+    check(rects.allSatisfy { $0.x >= -0.01 && $0.y >= -0.01 && $0.x + $0.width <= 400.01 && $0.y + $0.height <= 300.01 },
+          "都在画布里面")
+    var overlap = false
+    for i in rects.indices { for j in rects.indices where i < j {
+        let a = rects[i], b = rects[j]
+        if a.x + 0.01 < b.x + b.width && b.x + 0.01 < a.x + a.width && a.y + 0.01 < b.y + b.height && b.y + 0.01 < a.y + a.height { overlap = true }
+    } }
+    check(!overlap, "色块互不重叠")
+}
+
 // MARK: - 翻译
 
 group("英文翻译：每条内置规则的名称、说明、分类、工具名都有翻译") {

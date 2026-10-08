@@ -27,6 +27,7 @@ final class SizeCalculator: @unchecked Sendable {
     private func directorySize(_ root: String) -> Int64 {
         if let known = cached(root) { return known }
         var total: Int64 = 0
+        var linked = Set<UInt64>()   // 硬链接（同一个文件的几个名字）只算一次
         FTS.walk(root) { entry, path, level in
             switch Int32(entry.pointee.fts_info) {
             case FTS_D:
@@ -36,7 +37,9 @@ final class SizeCalculator: @unchecked Sendable {
                     return .skip
                 }
             case FTS_F, FTS_DEFAULT:
-                total += Int64(entry.pointee.fts_statp.pointee.st_blocks) * 512
+                let st = entry.pointee.fts_statp.pointee
+                if st.st_nlink > 1 && !linked.insert(UInt64(st.st_ino)).inserted { break }
+                total += Int64(st.st_blocks) * 512
             default:
                 break
             }
@@ -51,12 +54,13 @@ final class SizeCalculator: @unchecked Sendable {
 enum FTS {
     enum Step { case next, skip }
 
-    static func walk(_ root: String,
+    /// - xdev：不跨到别的磁盘（比如外接硬盘、挂载的网络盘）
+    static func walk(_ root: String, xdev: Bool = false,
                      _ visit: (UnsafeMutablePointer<FTSENT>, String, Int) -> Step) {
         guard let rootPath = strdup(root) else { return }
         defer { free(rootPath) }
         var argv: [UnsafeMutablePointer<CChar>?] = [rootPath, nil]
-        guard let fts = fts_open(&argv, FTS_PHYSICAL | FTS_NOCHDIR, nil) else { return }
+        guard let fts = fts_open(&argv, FTS_PHYSICAL | FTS_NOCHDIR | (xdev ? FTS_XDEV : 0), nil) else { return }
         defer { fts_close(fts) }
         while let entry = fts_read(fts) {
             let path = String(cString: entry.pointee.fts_path)
