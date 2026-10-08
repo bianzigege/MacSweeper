@@ -330,6 +330,60 @@ group("卸载：相关文件的分组") {
     check(!UninstallItem.Kind.shared.removable && !UninstallItem.Kind.systemLevel.removable, "共享的和系统级的不能删")
 }
 
+group("卸载：还装着另一份同 ID 的 App 时，相关文件一个都不动") {
+    let appURL = sandbox.appendingPathComponent("Apps/Demo.app")
+    let app = AppInfo(url: appURL, name: "Demo", bundleID: "com.test.demo", version: nil, lastUsed: nil,
+                      protection: nil, needsPassword: false, homebrewCask: nil)
+    let plan = UninstallPlanner.plan(for: app, library: sandbox.appendingPathComponent("Lib"),
+                                     systemLibrary: sandbox.appendingPathComponent("SysLib"),
+                                     installedIDs: [], otherCopies: [URL(fileURLWithPath: "/Applications/Demo 2.app")])
+    check(plan.items.map(\.kind) == [.bundle], "只移走这一份 App 本体（实际：\(plan.items.map(\.kind))）")
+    check(plan.note?.contains("Demo 2.app") == true, "告诉你原因")
+}
+
+group("拖进废纸篓：发现从“应用程序”里移走的 App") {
+    let apps = makeDir("WatchApps")
+    func makeApp(_ name: String, _ id: String) throws {
+        let c = apps.appendingPathComponent("\(name).app/Contents")
+        try fm.createDirectory(at: c, withIntermediateDirectories: true)
+        try (["CFBundleIdentifier": id, "CFBundleName": name] as NSDictionary).write(to: c.appendingPathComponent("Info.plist"))
+    }
+    try makeApp("Keep", "com.test.keep")
+    try makeApp("Gone", "com.test.gone")
+    try makeApp("Update", "com.test.update")
+    final class Box: @unchecked Sendable { var names: [String] = []; let lock = NSLock() }
+    let box = Box()
+    let seen = DispatchSemaphore(value: 0)
+    let watcher = AppRemovalWatcher(directories: [apps], settleSeconds: 0.5) { app in
+        box.lock.lock(); box.names.append(app.name); box.lock.unlock(); seen.signal()
+    }
+    watcher.start()
+    let out = makeDir("OutTrash")
+    try fm.moveItem(at: apps.appendingPathComponent("Gone.app"), to: out.appendingPathComponent("Gone.app"))   // 拖进“废纸篓”
+    // 模拟 App 更新：先挪走，马上又放回来
+    try fm.moveItem(at: apps.appendingPathComponent("Update.app"), to: out.appendingPathComponent("Update.app"))
+    try fm.moveItem(at: out.appendingPathComponent("Update.app"), to: apps.appendingPathComponent("Update.app"))
+    let ok = seen.wait(timeout: .now() + 5) == .success
+    Thread.sleep(forTimeInterval: 1.5)
+    watcher.stop()
+    check(ok && box.names == ["Gone"], "只提醒真的被移走的 App，更新时不误报（实际：\(box.names)）")
+}
+
+group("拖进废纸篓：找移走的 App 留下的文件") {
+    // 前面那个假 App 的文件还在 Lib 里；App 本体已经不在原位置了
+    let removed = AppInfo(url: sandbox.appendingPathComponent("Apps/RemovedDemo.app"), name: "Demo", bundleID: "com.test.demo",
+                          version: nil, lastUsed: nil, protection: nil, needsPassword: false, homebrewCask: nil)
+    let lib = sandbox.appendingPathComponent("Lib"), sys = sandbox.appendingPathComponent("SysLib")
+    let plan = UninstallPlanner.leftovers(ofRemovedApp: removed, library: lib, systemLibrary: sys,
+                                          installedIDs: ["com.test.other"], otherCopies: [])
+    check(plan != nil && plan!.items.allSatisfy { $0.kind != .bundle }, "列出留下的文件，不含 App 本体")
+    check(plan?.items.contains { $0.url.lastPathComponent == "com.test.demo.plist" && $0.kind == .matched } == true,
+          "找到了它的设置文件")
+    let withCopy = UninstallPlanner.leftovers(ofRemovedApp: removed, library: lib, systemLibrary: sys,
+                                              installedIDs: [], otherCopies: [URL(fileURLWithPath: "/Applications/Demo.app")])
+    check(withCopy == nil, "还装着另一份同样的 App 时（比如更新、挪了位置），不提醒")
+}
+
 group("卸载：哪些 App 不能卸载") {
     check(AppCatalog.info(for: URL(fileURLWithPath: "/System/Applications/Calculator.app")).protection == .system, "系统自带的受保护")
     if fm.fileExists(atPath: "/Applications/Safari.app") {

@@ -180,6 +180,7 @@ case "uninstall":
     }
     FileHandle.standardError.write(Data("正在查找相关文件…\n".utf8))
     let plan = UninstallPlanner.plan(for: app)
+    if let note = plan.note { print("\n⚠️  " + note) }
     let titles: [UninstallItem.Kind: String] = [
         .bundle: "一定会删 · App 本体", .matched: "默认勾选 · ID 完全对得上的", .launchAgent: "默认勾选 · 开机自启项",
         .userData: "默认不勾 · 可能有你的数据", .guessed: "默认不勾 · 按名字找到的，不确定是不是它的",

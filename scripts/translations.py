@@ -346,6 +346,19 @@ EN = {
     "开机自启项": "Login item",
     "系统级后台服务（需要管理员权限）": "System background service (needs admin rights)",
     "系统级辅助程序（需要管理员权限）": "System helper tool (needs admin rights)",
+    # —— 拖进废纸篓的提醒、同 ID 副本 ——
+    "%@ 已经从“应用程序”里移走了，这些是它留下的。勾选你要一起移到废纸篓的文件。":
+        "%@ has been removed from Applications. These are the files it left behind; check the ones to move to the Trash too.",
+    "%@ 没有留下需要清理的文件": "%@ didn't leave anything that needs cleaning",
+    "App 进废纸篓时提醒清理残留": "Offer cleanup when an app is trashed",
+    "你把 %@ 移到了废纸篓": "You moved %@ to the Trash",
+    "你把 App 拖进废纸篓时，MacSweeper 会找出它留下的文件，提醒你要不要一起清理。需要 MacSweeper 开着（关掉窗口也行）":
+        "When you drag an app to the Trash, MacSweeper finds the files it left behind and offers to clean them up. MacSweeper needs to be running (its window can be closed)",
+    "它还留下 %ld 个相关文件（%@ 可以放心清理）。点这里看看要不要一起清理。":
+        "It left %ld related files behind (%@ safe to clean). Click to review them.",
+    "清理 %@ 留下的文件": "Clean Up What %@ Left Behind",
+    "还装着另一份同样的 App（%@），缓存和设置是它在用的，所以只移走这一份 App，相关文件都不动":
+        "Another copy of this app is installed (%@) and still uses its caches and settings, so only this copy is removed and its files are left alone",
 }
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -401,6 +414,9 @@ def main():
         f.write("/* 由 scripts/translations.py 生成，不要直接修改 */\n\n")
         for zh, en in EN.items():
             f.write(f'"{esc(zh)}" = "{esc(en)}";\n')
+    # 访达右键菜单“服务”里的名字
+    with open(os.path.join(ROOT, "Resources/en.lproj/ServicesMenu.strings"), "w", encoding="utf-8") as f:
+        f.write('"用 MacSweeper 卸载" = "Uninstall with MacSweeper";\n')
     zh_out = os.path.join(ROOT, "Resources/zh-Hans.lproj/Localizable.strings")
     os.makedirs(os.path.dirname(zh_out), exist_ok=True)
     with open(zh_out, "w", encoding="utf-8") as f:

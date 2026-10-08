@@ -18,6 +18,7 @@
 - **Per-item selection**: expand any category to see each folder's size and last-modified date
 - **Running apps are protected**: their files are skipped, or use "Quit and Clean" to quit the app, clean, and reopen it
 - **Uninstall apps**: see apps you haven't used in a long time; select one and press ⌘⌫ (or right-click, or drag it into the window or onto the Dock icon) to review everything that goes with it — caches, settings, login items — before moving it all to the Trash. Undoable
+- **Uninstall from Finder** (right-click → Services → Uninstall with MacSweeper) and **cleanup offers when you drag an app to the Trash**: MacSweeper notices the app left Applications and offers to clean up what it left behind
 - **Undo last cleanup**: put everything from the last cleanup back where it was
 - **Custom rules** in a JSON file, no code changes needed
 - Chinese and English, following your system language

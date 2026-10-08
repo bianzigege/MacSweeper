@@ -7,7 +7,7 @@
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
-VERSION="0.9.0"
+VERSION="0.10.0"
 APP="build/MacSweeper.app"
 
 for arch in arm64 x86_64; do
@@ -42,6 +42,16 @@ cat > "$APP/Contents/Info.plist" <<EOF
     <key>LSApplicationCategoryType</key><string>public.app-category.utilities</string>
     <key>CFBundleIconFile</key><string>AppIcon</string>
     <key>NSHighResolutionCapable</key><true/>
+    <key>NSServices</key>
+    <array>
+        <dict>
+            <key>NSMenuItem</key><dict><key>default</key><string>用 MacSweeper 卸载</string></dict>
+            <key>NSMessage</key><string>uninstallApp</string>
+            <key>NSPortName</key><string>MacSweeper</string>
+            <key>NSSendFileTypes</key><array><string>com.apple.application-bundle</string></array>
+            <key>NSRequiredContext</key><dict/>
+        </dict>
+    </array>
     <key>CFBundleDocumentTypes</key>
     <array>
         <dict>

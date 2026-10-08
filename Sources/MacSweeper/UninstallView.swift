@@ -5,6 +5,7 @@ import SweeperCore
 /// “卸载 App”页面：App 清单（很久没用的排前面），选中后 ⌘⌫ 打开确认清单
 struct UninstallView: View {
     @EnvironmentObject var model: UninstallModel
+    @AppStorage(AppDelegate.watchTrashKey) private var watchTrash = true
 
     var body: some View {
         VStack(spacing: 0) {
@@ -34,6 +35,9 @@ struct UninstallView: View {
                 .font(.callout).foregroundStyle(.secondary)
                 .help(L("超过 %ld 天没打开过，或者从没打开过", AppInfo.unusedDays))
             Spacer()
+            Toggle(L("App 进废纸篓时提醒清理残留"), isOn: $watchTrash).toggleStyle(.checkbox)
+                .help(L("你把 App 拖进废纸篓时，MacSweeper 会找出它留下的文件，提醒你要不要一起清理。需要 MacSweeper 开着（关掉窗口也行）"))
+                .onChange(of: watchTrash) { _ in AppDelegate.shared?.updateTrashWatching() }
             Toggle(L("只看很久没用的"), isOn: $model.onlyUnused).toggleStyle(.checkbox)
             HStack(spacing: 6) {
                 Image(systemName: "magnifyingglass").foregroundStyle(.secondary)
@@ -205,6 +209,9 @@ struct UninstallSheet: View {
                                 Button(L("退出%@", running.localizedName ?? plan.app.name)) { model.quitThenReplan(plan) }
                             }
                         }
+                        if let note = plan.note {
+                            Label(note, systemImage: "exclamationmark.shield").font(.callout).foregroundStyle(.blue)
+                        }
                         if let cask = plan.app.homebrewCask {
                             Label(L("这个 App 是用 Homebrew 装的，建议在终端运行 brew uninstall --cask %@，不然 Homebrew 会以为它还装着", cask),
                                   systemImage: "terminal").font(.callout).foregroundStyle(.purple)
@@ -241,8 +248,11 @@ struct UninstallSheet: View {
         HStack(spacing: 12) {
             Image(nsImage: NSWorkspace.shared.icon(forFile: plan.app.url.path)).resizable().frame(width: 44, height: 44)
             VStack(alignment: .leading, spacing: 2) {
-                Text(L("卸载 %@", plan.app.name)).font(.title3.weight(.semibold))
-                Text(L("所有东西都只是移到废纸篓，可以撤销。勾选你要一起移走的文件。"))
+                let leftoversOnly = !plan.items.contains { $0.kind == .bundle } && !FileManager.default.fileExists(atPath: plan.app.url.path)
+                Text(leftoversOnly ? L("清理 %@ 留下的文件", plan.app.name) : L("卸载 %@", plan.app.name))
+                    .font(.title3.weight(.semibold))
+                Text(leftoversOnly ? L("%@ 已经从“应用程序”里移走了，这些是它留下的。勾选你要一起移到废纸篓的文件。", plan.app.name)
+                                   : L("所有东西都只是移到废纸篓，可以撤销。勾选你要一起移走的文件。"))
                     .font(.callout).foregroundStyle(.secondary)
             }
         }

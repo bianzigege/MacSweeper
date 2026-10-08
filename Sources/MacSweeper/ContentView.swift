@@ -71,7 +71,16 @@ struct ContentView: View {
     private func takePending() {
         let urls = AppDelegate.pending
         AppDelegate.pending.removeAll()
-        if let url = urls.last { openUninstall(url) }
+        let trashed = AppDelegate.pendingLeftovers
+        AppDelegate.pendingLeftovers.removeAll()
+        if let url = urls.last {
+            openUninstall(url)
+        } else if let app = trashed.last {
+            // 你拖进废纸篓的 App：打开它留下的文件的清单
+            tab = .uninstall
+            uninstall.load()
+            uninstall.requestLeftovers(app)
+        }
     }
 
     private func openUninstall(_ url: URL) {

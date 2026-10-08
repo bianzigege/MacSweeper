@@ -79,7 +79,9 @@ public enum OperationLog {
     public static let url = FileManager.default.homeDirectoryForCurrentUser
         .appendingPathComponent("Library/Logs/MacSweeper/operations.log")
 
-    static func write(_ line: String) {
+    public static func write(_ line: String) {
+        // 自检程序在临时目录里做的测试不记进你的日志
+        if line.contains("/macsweeper-selftest-") { return }
         let fm = FileManager.default
         try? fm.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
         let stamp = ISO8601DateFormatter().string(from: Date())

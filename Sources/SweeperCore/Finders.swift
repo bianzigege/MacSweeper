@@ -225,7 +225,7 @@ enum AppInventory {
     /// App 本身和里面的辅助程序、扩展、iOS App 外壳
     static func bundleIDs(inApp app: URL) -> Set<String> {
         var ids = Set<String>()
-        if let id = Bundle(url: app)?.bundleIdentifier { ids.insert(id.lowercased()) }
+        if let id = AppCatalog.infoPlist(app)["CFBundleIdentifier"] as? String { ids.insert(id.lowercased()) }
         let fm = FileManager.default
         for sub in ["Contents/Library/LoginItems", "Contents/PlugIns", "Contents/XPCServices",
                     "Contents/Library/LaunchServices", "Contents/Helpers", "Contents/Frameworks",
@@ -233,7 +233,7 @@ enum AppInventory {
             let dir = app.appendingPathComponent(sub)
             for n in (try? fm.contentsOfDirectory(atPath: dir.path)) ?? []
             where [".app", ".appex", ".xpc", ".systemextension"].contains(where: n.hasSuffix) {
-                if let id = Bundle(url: dir.appendingPathComponent(n))?.bundleIdentifier {
+                if let id = AppCatalog.infoPlist(dir.appendingPathComponent(n))["CFBundleIdentifier"] as? String {
                     ids.insert(id.lowercased())
                 }
             }

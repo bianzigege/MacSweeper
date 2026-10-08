@@ -99,7 +99,11 @@ SIGN_IDENTITY="Developer ID Application: 你的名字 (TEAMID)" NOTARY_PROFILE=m
 
 ### 卸载 App
 
-切到顶部的“卸载 App”。很久没用的（超过 90 天没打开或从没打开过）排在前面。选中一个 App 按 **⌘⌫**，或者右键 →“卸载…”，或者把 App 拖进窗口、拖到程序坞里的 MacSweeper 图标上。命令行：`sweep apps`、`sweep uninstall <App名> --dry-run`。
+切到顶部的“卸载 App”。很久没用的（超过 90 天没打开或从没打开过）排在前面。选中一个 App 按 **⌘⌫**，或者右键 →“卸载…”，或者把 App 拖进窗口、拖到程序坞里的 MacSweeper 图标上。
+
+**在访达里卸载**：在“应用程序”里右键一个 App →“服务”→“用 MacSweeper 卸载”（MacSweeper 要放在“应用程序”文件夹里并打开过一次）。想要快捷键：“系统设置 → 键盘 → 键盘快捷键 → 服务 → 文件和文件夹”，给“用 MacSweeper 卸载”设一个。
+
+**拖进废纸篓时提醒**：你直接把 App 拖进废纸篓时，MacSweeper 会发现它从“应用程序”里消失了，找出它留下的文件，发通知问你要不要一起清理（点通知打开确认清单）。需要 MacSweeper 开着（关掉窗口也行，它会在后台继续运行）；不需要任何特殊权限。App 更新、挪到子文件夹、还装着另一份同样的 App 时不会提醒。可以在“卸载 App”页面关掉。命令行：`sweep apps`、`sweep uninstall <App名> --dry-run`。
 
 快捷键只打开**确认清单**，不会直接删除。清单分组：
 
@@ -110,7 +114,7 @@ SIGN_IDENTITY="Developer ID Application: 你的名字 (TEAMID)" NOTARY_PROFILE=m
 | 可能有你数据的（应用数据、沙盒）；按名字找到、不确定是不是它的 | 不勾 |
 | 同一厂商其他 App 还在用的共享数据；系统级后台服务 | 不会动，只告诉你 |
 
-安全措施：苹果自带的 App、MacSweeper 自己、你加进保护名单的 App（右键菜单）不能卸载；正在运行的要先退出；确认窗口的默认按钮是“取消”，回车和 Esc 都只会取消；勾选了超过 100MB 可能有你数据的项目会再确认一次；归系统所有的 App 由 macOS 弹出它自己的密码框；全部只移到废纸篓，可以“撤销这次卸载”。用 Homebrew 装的 App 会提示你改用 `brew uninstall`。
+安全措施：还装着另一份同 ID 的 App（比如 Claude 和它的旧版备份）时，只移走这一份 App 本体，缓存设置都不动；苹果自带的 App、MacSweeper 自己、你加进保护名单的 App（右键菜单）不能卸载；正在运行的要先退出；确认窗口的默认按钮是“取消”，回车和 Esc 都只会取消；勾选了超过 100MB 可能有你数据的项目会再确认一次；归系统所有的 App 由 macOS 弹出它自己的密码框；全部只移到废纸篓，可以“撤销这次卸载”。用 Homebrew 装的 App 会提示你改用 `brew uninstall`。
 
 ### 撤销
 
@@ -122,7 +126,7 @@ SIGN_IDENTITY="Developer ID Application: 你的名字 (TEAMID)" NOTARY_PROFILE=m
 ./scripts/selftest.sh
 ```
 
-检查安全护栏、残留判断、浏览器缓存识别、去重、大小计算、运行检查、撤销、自定义规则、卸载 App 等 93 项关键逻辑。测试文件都建在临时目录里，不碰真实文件；不需要 Xcode。改了 `SweeperCore` 之后先跑一遍。
+检查安全护栏、残留判断、浏览器缓存识别、去重、大小计算、运行检查、撤销、自定义规则、卸载 App、拖进废纸篓提醒等 99 项关键逻辑。测试文件都建在临时目录里，不碰真实文件；不需要 Xcode。改了 `SweeperCore` 之后先跑一遍。
 
 ### 命令行
 

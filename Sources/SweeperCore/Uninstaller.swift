@@ -71,11 +71,13 @@ public enum AppCatalog {
 
     public static func info(for url: URL, protected: Set<String> = ProtectedApps.load(),
                             casks: Set<String> = homebrewCasks()) -> AppInfo {
-        let bundle = Bundle(url: url)
-        let id = bundle?.bundleIdentifier
-        let name = (bundle?.object(forInfoDictionaryKey: "CFBundleDisplayName") as? String)
-            ?? FileManager.default.displayName(atPath: url.path).replacingOccurrences(of: ".app", with: "")
-        let version = bundle?.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String
+        let plist = infoPlist(url)
+        let id = plist["CFBundleIdentifier"] as? String
+        // 用访达里显示的名字（会按系统语言显示，比如“剪映专业版”），和你在访达里看到的一致
+        var name = FileManager.default.displayName(atPath: url.path)
+        if name.hasSuffix(".app") { name = String(name.dropLast(4)) }
+        if name.isEmpty { name = (plist["CFBundleDisplayName"] as? String) ?? url.deletingPathExtension().lastPathComponent }
+        let version = plist["CFBundleShortVersionString"] as? String
 
         var protection: AppInfo.Protection?
         if id?.lowercased().hasPrefix("com.apple.") == true || url.path.hasPrefix("/System/") {
@@ -92,6 +94,20 @@ public enum AppCatalog {
         return AppInfo(url: url, name: name, bundleID: id, version: version, lastUsed: lastUsedDate(url),
                        protection: protection, needsPassword: needsPassword,
                        homebrewCask: casks.contains(token) ? token : nil)
+    }
+
+    /// “应用程序”里和它 ID 一样、但不是它本身的其他副本
+    public static func otherCopies(of app: AppInfo) -> [URL] {
+        guard let id = app.bundleID?.lowercased() else { return [] }
+        let me = app.url.standardizedFileURL.path
+        return list().filter { $0.bundleID?.lowercased() == id && $0.url.standardizedFileURL.path != me }.map(\.url)
+    }
+
+    /// 直接读 App 的 Info.plist。不用 Bundle(url:)：系统会缓存它，App 还没拷贝完时读到的“空”会一直被记着
+    public static func infoPlist(_ app: URL) -> [String: Any] {
+        (NSDictionary(contentsOf: app.appendingPathComponent("Contents/Info.plist")) as? [String: Any])
+            ?? (NSDictionary(contentsOf: app.appendingPathComponent("Info.plist")) as? [String: Any])   // iOS App 外壳等
+            ?? [:]
     }
 
     /// Spotlight 记录的“上次打开时间”
@@ -173,6 +189,14 @@ public struct UninstallItem: Sendable, Identifiable, Hashable {
 public struct UninstallPlan: Sendable {
     public let app: AppInfo
     public let items: [UninstallItem]
+    /// 需要特别告诉你的事，比如“还装着另一份同样的 App，所以只移走这一份”
+    public var note: String?
+
+    public init(app: AppInfo, items: [UninstallItem], note: String? = nil) {
+        self.app = app
+        self.items = items
+        self.note = note
+    }
 
     public var removableBytes: Int64 { items.filter { $0.kind.removable }.reduce(0) { $0 + $1.bytes } }
 }
@@ -182,12 +206,23 @@ public enum UninstallPlanner {
     /// - library：用户资料库（测试时换成临时目录）
     /// - systemLibrary：系统资料库 /Library（测试时换成临时目录）
     /// - installedIDs：其他已安装 App 的 ID，用来判断共享文件
+    /// - otherCopies：还装着的、同一个 ID 的其他副本（不传就现查）
     public static func plan(for app: AppInfo,
                             library: URL = FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent("Library"),
                             systemLibrary: URL = URL(fileURLWithPath: "/Library"),
-                            installedIDs: Set<String>? = nil) -> UninstallPlan {
+                            installedIDs: Set<String>? = nil,
+                            otherCopies: [URL]? = nil) -> UninstallPlan {
         let fm = FileManager.default
         let sizes = SizeCalculator()
+
+        // 还装着另一份同 ID 的 App（比如 Claude 和它的旧版备份）：相关文件是另一份在用的，一个都不能动
+        let copies = otherCopies ?? AppCatalog.otherCopies(of: app)
+        if !copies.isEmpty {
+            let bundle = UninstallItem(url: app.url, kind: .bundle, bytes: sizes.size(of: app.url), what: "App 本体")
+            return UninstallPlan(app: app, items: app.url.path.contains("/.Trash/") ? [] : [bundle],
+                                 note: L("还装着另一份同样的 App（%@），缓存和设置是它在用的，所以只移走这一份 App，相关文件都不动",
+                                         copies.map(\.lastPathComponent).joined(separator: L("、"))))
+        }
         var found: [URL: (UninstallItem.Kind, String)] = [:]
         func add(_ url: URL, _ kind: UninstallItem.Kind, _ what: String) {
             guard fm.fileExists(atPath: url.path) || (try? fm.destinationOfSymbolicLink(atPath: url.path)) != nil else { return }
@@ -311,6 +346,15 @@ public enum UninstallPlanner {
 // MARK: - 执行卸载
 
 public enum Uninstaller {
+    private static let recentLock = NSLock()
+    nonisolated(unsafe) private static var recent: [String: Date] = [:]
+
+    /// 这个 App 是不是 MacSweeper 刚刚自己卸载的（5 分钟内，按原来的位置记）
+    public static func wasRemovedByUs(_ url: URL) -> Bool {
+        recentLock.lock(); defer { recentLock.unlock() }
+        return recent[url.standardizedFileURL.path].map { Date().timeIntervalSince($0) < 300 } ?? false
+    }
+
     /// 卸载：只移到废纸篓。执行前再检查一遍（受保护、正在运行），开机自启项先停掉
     public static func uninstall(_ plan: UninstallPlan, selected: Set<URL>) -> CleanReport {
         var report = CleanReport()
@@ -336,6 +380,9 @@ public enum Uninstaller {
                 continue
             }
             if let moved = trash(item.url) {
+                if item.kind == .bundle {
+                    recentLock.lock(); recent[item.url.standardizedFileURL.path] = Date(); recentLock.unlock()
+                }
                 report.trashedCount += 1
                 report.trashedBytes += item.bytes
                 report.moves.append(TrashMove(original: item.url.path, inTrash: moved.path, bytes: item.bytes))
@@ -388,7 +435,7 @@ extension PathGuard {
         guard let root = roots.first(where: { path.hasPrefix($0) }) else { return false }
         let depth = path.dropFirst(root.count).split(separator: "/").count
         guard depth == 1 || depth == 2 else { return false }
-        let id = Bundle(url: url)?.bundleIdentifier?.lowercased() ?? ""
+        let id = (AppCatalog.infoPlist(url)["CFBundleIdentifier"] as? String)?.lowercased() ?? ""
         return !id.hasPrefix("com.apple.")
     }
 }

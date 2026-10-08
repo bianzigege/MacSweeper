@@ -87,6 +87,22 @@ final class UninstallModel: ObservableObject {
         requestUninstall(app)
     }
 
+    /// 已经被移走（拖进废纸篓）的 App：列出它留下的文件
+    func requestLeftovers(_ removed: AppInfo) {
+        notice = nil
+        planning = true
+        Task {
+            let plan = await Task.detached(priority: .userInitiated) { UninstallPlanner.leftovers(ofRemovedApp: removed) }.value
+            planning = false
+            guard let plan else {
+                notice = L("%@ 没有留下需要清理的文件", removed.name)
+                return
+            }
+            self.plan = plan
+            chosen = Set(plan.items.filter { $0.kind.selectedByDefault }.map(\.url))
+        }
+    }
+
     func cancelPlan() { plan = nil }
 
     func toggle(_ item: UninstallItem) {
