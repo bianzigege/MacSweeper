@@ -530,6 +530,14 @@ group("空间地图：色块排列") {
     check(!overlap, "色块互不重叠")
 }
 
+// MARK: - 版本号
+
+group("版本号比较（新版本提醒用）") {
+    check(Version.isNewer("0.13.0", than: "0.12.0") && Version.isNewer("1.0.0", than: "0.99.9") && Version.isNewer("0.12.1", than: "0.12"),
+          "新的算新")
+    check(!Version.isNewer("0.12.0", than: "0.12.0") && !Version.isNewer("0.9.0", than: "0.12.0"), "一样或更旧的不算新（0.9 不比 0.12 新）")
+}
+
 // MARK: - 翻译
 
 group("英文翻译：每条内置规则的名称、说明、分类、工具名都有翻译") {

@@ -5,6 +5,7 @@ import SweeperCore
 struct ContentView: View {
     @EnvironmentObject var model: SweepModel
     @EnvironmentObject var uninstall: UninstallModel
+    @EnvironmentObject var updates: UpdateChecker
     @State private var tab: Tab = .clean
     @State private var dropTargeted = false
 
@@ -16,6 +17,18 @@ struct ContentView: View {
         VStack(spacing: 0) {
             header
             Divider()
+            if let release = updates.available, !updates.dismissed {
+                HStack {
+                    Label(L("有新版本 %@（当前 %@）", release.version, UpdateChecker.current), systemImage: "arrow.down.circle")
+                        .font(.callout)
+                    Spacer()
+                    Button(L("去下载")) { NSWorkspace.shared.open(release.url) }
+                    Button { updates.dismissed = true } label: { Image(systemName: "xmark") }.buttonStyle(.borderless)
+                }
+                .padding(.horizontal, 20).padding(.vertical, 8)
+                .background(.quaternary.opacity(0.4))
+                Divider()
+            }
             if tab == .uninstall {
                 UninstallView()
             } else if tab == .duplicates {
@@ -53,6 +66,11 @@ struct ContentView: View {
         }
         .onReceive(NotificationCenter.default.publisher(for: .uninstallRequested)) { _ in takePending() }
         .onAppear { takePending() }
+        // 菜单栏里点了“扫描一下”
+        .onReceive(NotificationCenter.default.publisher(for: .scanRequested)) { _ in
+            tab = .clean
+            if model.phase != .scanning { model.scan() }
+        }
         .confirmationDialog(
             L("将 %ld 个项目（%@）移到废纸篓？", model.selectedCount, formatBytes(model.selectedBytes)),
             isPresented: $confirming, titleVisibility: .visible
@@ -111,7 +129,7 @@ struct ContentView: View {
                     }
                     .pickerStyle(.segmented).labelsHidden().fixedSize()
                 }
-                Text(L("磁盘剩余空间：%@", formatBytes(model.freeBytes)))
+                Text(L("磁盘剩余空间：%@", formatBytes(model.freeBytes)) + "  ·  v" + UpdateChecker.current)
                     .font(.callout).foregroundStyle(.secondary)
                     .fixedSize()
             }

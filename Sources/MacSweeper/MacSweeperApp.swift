@@ -10,6 +10,9 @@ struct MacSweeperApp: App {
     @StateObject private var uninstall = UninstallModel()
     @StateObject private var duplicates = DuplicatesModel()
     @StateObject private var diskMap = DiskMapModel()
+    @StateObject private var menuBar = MenuBarModel()
+    @StateObject private var updates = UpdateChecker()
+    @AppStorage(MenuBarModel.showKey) private var showMenuBar = true
 
     init() {
         // 直接用 swift run 启动时也能正常显示窗口和程序坞图标
@@ -18,15 +21,31 @@ struct MacSweeperApp: App {
     }
 
     var body: some Scene {
-        WindowGroup("MacSweeper") {
+        WindowGroup("MacSweeper", id: "main") {
             ContentView()
                 .environmentObject(model)
                 .environmentObject(uninstall)
                 .environmentObject(duplicates)
                 .environmentObject(diskMap)
+                .environmentObject(updates)
                 .frame(minWidth: 680, minHeight: 560)
+                .onAppear { updates.checkIfDue() }
         }
         .windowResizability(.contentMinSize)
+
+        // 菜单栏小工具：显示剩余空间，空间不足时变色并提醒
+        MenuBarExtra(isInserted: $showMenuBar) {
+            MenuBarMenu().environmentObject(menuBar)
+        } label: {
+            Label {
+                Text(menuBar.label)
+            } icon: {
+                Image(systemName: menuBar.isLow ? "internaldrive.fill" : "internaldrive")
+                    .symbolRenderingMode(.palette)
+                    .foregroundStyle(menuBar.isLow ? Color.orange : Color.primary)
+            }
+            .labelStyle(.titleAndIcon)
+        }
     }
 }
 

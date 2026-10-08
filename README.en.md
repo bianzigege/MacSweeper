@@ -21,6 +21,7 @@
 - **Uninstall from Finder** (right-click → Services → Uninstall with MacSweeper) and **cleanup offers when you drag an app to the Trash**: MacSweeper notices the app left Applications and offers to clean up what it left behind
 - **Duplicates**: finds files with identical content (byte by byte), recognizes APFS clones that free no space, skips project folders and app data. Nothing is checked by default and at least one copy is always kept
 - **Space map**: see what takes up your home folder as nested blocks; click to look inside. View only
+- **Menu bar widget** showing free space (turns orange and notifies when low) and **update notices** from GitHub releases
 - **Undo last cleanup**: put everything from the last cleanup back where it was
 - **Custom rules** in a JSON file, no code changes needed
 - Chinese and English, following your system language

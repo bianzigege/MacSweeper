@@ -197,6 +197,9 @@ final class SweepModel: ObservableObject {
 
     private func show(_ found: [ScanResult]) {
         results = ScanSession.ordered(found, like: RuleBook.builtIn + CustomRules.load().rules).filter { !$0.items.isEmpty || !$0.unreadable.isEmpty }
+        // 记下来给菜单栏小工具显示
+        UserDefaults.standard.set(Int(safeBytes), forKey: MenuBarModel.lastSafeKey)
+        UserDefaults.standard.set(Date(), forKey: MenuBarModel.lastScanDateKey)
     }
 
     func clean() {

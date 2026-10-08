@@ -394,6 +394,19 @@ EN = {
     "把“%@”移走的 %ld 个项目放回原处？": "Put back the %ld items removed by “%@”?",
     "正在把“%@”的文件放回原处…": "Putting back the files from “%@”…",
 
+    # —— 菜单栏小工具、新版本提醒 ——
+    "剩余 %@ / 共 %@": "%@ free of %@",
+    "空间不多了，建议清理": "Running low on space, time to clean up",
+    "上次扫描（%@）：可放心清理 %@": "Last scan (%@): %@ safe to clean",
+    "打开 MacSweeper": "Open MacSweeper",
+    "扫描一下": "Scan Now",
+    "在菜单栏显示": "Show in Menu Bar",
+    "退出 MacSweeper": "Quit MacSweeper",
+    "硬盘空间不多了": "Disk space is running low",
+    "只剩 %@。打开 MacSweeper 扫描一下，看看能腾出多少。": "Only %@ left. Open MacSweeper and scan to see how much you can free up.",
+    "有新版本 %@（当前 %@）": "Version %@ is available (you have %@)",
+    "去下载": "Download",
+
     # —— 空间地图 ——
     "空间地图": "Space Map",
     "看看空间都被谁占了": "See what's taking up your space",

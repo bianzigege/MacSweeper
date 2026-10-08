@@ -9,3 +9,16 @@ public func L(_ key: String, _ args: CVarArg...) -> String {
     let text = Bundle.main.localizedString(forKey: key, value: key, table: nil)
     return args.isEmpty ? text : String(format: text, arguments: args)
 }
+
+/// 版本号比较：按数字逐段比，0.12.0 < 0.13.0 < 1.0.0
+public enum Version {
+    public static func isNewer(_ a: String, than b: String) -> Bool {
+        let pa = a.split(separator: ".").map { Int($0) ?? 0 }
+        let pb = b.split(separator: ".").map { Int($0) ?? 0 }
+        for i in 0..<max(pa.count, pb.count) {
+            let x = i < pa.count ? pa[i] : 0, y = i < pb.count ? pb[i] : 0
+            if x != y { return x > y }
+        }
+        return false
+    }
+}
