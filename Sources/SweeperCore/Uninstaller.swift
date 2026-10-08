@@ -357,15 +357,15 @@ public enum Uninstaller {
 
     /// 卸载：只移到废纸篓。执行前再检查一遍（受保护、正在运行），开机自启项先停掉
     public static func uninstall(_ plan: UninstallPlan, selected: Set<URL>) -> CleanReport {
-        var report = CleanReport()
         let app = AppCatalog.info(for: plan.app.url)
+        let session = TrashSession(kind: .uninstall, title: L("卸载 %@", app.name))
         if app.protection != nil {
-            report.failures.append((app.url.path, L("这个 App 受保护，不能卸载")))
-            return report
+            session.fail(app.url, L("这个 App 受保护，不能卸载"))
+            return session.finish()
         }
         if let id = app.bundleID, !RunningSnapshot.current().apps(forBundleIDs: [id]).isEmpty {
-            report.failures.append((app.url.path, L("%@ 正在运行，请先退出", app.name)))
-            return report
+            session.fail(app.url, L("%@ 正在运行，请先退出", app.name))
+            return session.finish()
         }
         // App 本体一定在里面；其余只处理勾选了的、允许删除的
         let chosen = plan.items.filter { $0.kind == .bundle || ($0.kind.removable && selected.contains($0.url)) }
@@ -374,45 +374,12 @@ public enum Uninstaller {
 
         // 先删相关文件，最后删 App 本体：App 本体失败（比如要密码你取消了）时，其余已经在废纸篓，可以撤销
         for item in chosen.sorted(by: { $0.kind > $1.kind }) {
-            let allowed = item.kind == .bundle ? PathGuard.isAllowedApp(item.url) : PathGuard.isAllowed(item.url)
-            guard allowed else {
-                report.failures.append((item.url.path, L("不在允许范围内")))
-                continue
-            }
-            if let moved = trash(item.url) {
-                if item.kind == .bundle {
-                    recentLock.lock(); recent[item.url.standardizedFileURL.path] = Date(); recentLock.unlock()
-                }
-                report.trashedCount += 1
-                report.trashedBytes += item.bytes
-                report.moves.append(TrashMove(original: item.url.path, inTrash: moved.path, bytes: item.bytes))
-                OperationLog.write("UNINSTALL \(item.bytes) \(item.url.path)")
-            } else {
-                report.failures.append((item.url.path, item.kind == .bundle && app.needsPassword
-                    ? L("需要电脑密码，你取消了或者没有权限。可以在访达里把它拖到废纸篓")
-                    : L("没能移到废纸篓")))
+            let moved = session.trash(item.url, bytes: item.bytes, target: item.kind == .bundle ? .app : .file)
+            if moved != nil && item.kind == .bundle {
+                recentLock.lock(); recent[item.url.standardizedFileURL.path] = Date(); recentLock.unlock()
             }
         }
-        if !report.moves.isEmpty { Undo.save(TrashBatch(date: Date(), moves: report.moves)) }
-        return report
-    }
-
-    /// 移到废纸篓，返回在废纸篓里的位置。普通文件直接移；归系统所有的 App 交给系统处理，系统会弹出密码框
-    static func trash(_ url: URL) -> URL? {
-        var inTrash: NSURL?
-        if (try? FileManager.default.trashItem(at: url, resultingItemURL: &inTrash)) != nil {
-            return inTrash as URL?
-        }
-        // 需要权限：用 NSWorkspace，和在访达里拖到废纸篓一样，由 macOS 弹出它自己的密码框
-        var result: URL?
-        let done = DispatchSemaphore(value: 0)
-        NSWorkspace.shared.recycle([url]) { moved, error in
-            if error == nil { result = moved[url] }
-            done.signal()
-        }
-        // 等你输入密码，最多 2 分钟
-        _ = done.wait(timeout: .now() + 120)
-        return result
+        return session.finish()
     }
 
     static func stopLaunchAgent(_ plist: URL) {

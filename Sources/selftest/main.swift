@@ -248,6 +248,61 @@ group("撤销：从废纸篓放回原处") {
     check(blocked.failures.count == 1 && fm.fileExists(atPath: b.path), "不往主目录以外放")
 }
 
+// MARK: - 移到废纸篓（统一入口）和撤销历史
+
+group("移到废纸篓：统一入口的安全护栏") {
+    // 临时目录不在主目录里，必须被拒绝；什么都不会动
+    let outside = makeFile("outside.bin", bytes: 100)
+    let session = TrashSession(kind: .clean, title: "测试")
+    check(session.trash(outside, bytes: 100) == nil && fm.fileExists(atPath: outside.path), "主目录以外的文件拒绝移动")
+    check(session.trash(URL(fileURLWithPath: home + "/Desktop"), bytes: 1) == nil, "桌面这种受保护的文件夹本身拒绝移动")
+    check(session.trash(URL(fileURLWithPath: home + "/Library/Caches/x.app"), bytes: 1, target: .app) == nil,
+          "App 只允许在“应用程序”里（文件不存在也先被护栏挡住）")
+    let r = session.finish()
+    check(r.trashedCount == 0 && r.failures.count == 3 && r.batchID == nil, "没移走任何东西时不写撤销记录")
+}
+
+group("移到废纸篓 → 撤销：真实走一遍（主目录里的小文件）") {
+    // 唯一会碰真实废纸篓的测试：在 ~/Library/Caches 建一个 1 字节的文件，移进废纸篓再放回来，最后删掉
+    let dir = URL(fileURLWithPath: home + "/Library/Caches/macsweeper-selftest-\(UUID().uuidString)")
+    try fm.createDirectory(at: dir, withIntermediateDirectories: true)
+    defer { try? fm.removeItem(at: dir) }
+    let file = dir.appendingPathComponent("tiny")
+    fm.createFile(atPath: file.path, contents: Data([1]))
+    let rule = Rule(id: "selftest", name: "自检", category: "测试", safety: .review, detail: "", target: .paths([file.path]))
+    let report = Cleaner.moveToTrash([Scanner.scan(rule: rule)])
+    check(report.trashedCount == 1 && !fm.fileExists(atPath: file.path), "清理垃圾的路径能把文件移进废纸篓")
+    check(report.batchID != nil && Undo.history().contains { $0.id == report.batchID }, "写进了撤销历史")
+    let undo = report.batchID.flatMap { Undo.restore(id: $0) }
+    check(undo?.restoredCount == 1 && fm.fileExists(atPath: file.path), "按编号撤销，文件回到原处")
+    check(!Undo.history().contains { $0.id == report.batchID }, "撤销后记录从历史里去掉")
+}
+
+group("撤销历史：多条记录各自撤销，旧版记录能迁移") {
+    // 用假废纸篓文件造几条记录（不碰真实废纸篓）
+    let t = makeDir("HistTrash/.Trash")
+    func batch(_ title: String, _ name: String) -> TrashBatch {
+        makeFile("HistTrash/.Trash/\(name)")
+        return TrashBatch(kind: .uninstall, title: title,
+                          moves: [TrashMove(original: sandbox.path + "/restore2/\(name)", inTrash: t.appendingPathComponent(name).path, bytes: 1)])
+    }
+    let first = batch("卸载 A", "a"), second = batch("清理 B", "b")
+    Undo.save(first); Undo.save(second)
+    let ids = Undo.history().map(\.id)
+    check(ids.firstIndex(of: second.id)! < ids.firstIndex(of: first.id)!, "最近的在前，两条都在")
+    // 撤销较早的那条，不影响较晚的
+    let r = Undo.restore(first.moves, allowed: { _ in true })
+    check(r.restoredCount == 1 && fm.fileExists(atPath: sandbox.path + "/restore2/a"), "能单独撤销较早的一条")
+    // 清掉测试记录
+    for id in [first.id, second.id] { _ = Undo.restore(id: id) }
+    check(!Undo.history().contains { [first.id, second.id].contains($0.id) }, "测试记录已清掉")
+    // 旧版 last-clean.json 没有 id/kind/title，读出来要能补上
+    let legacy = Data(#"{"date":"2026-10-07T00:00:00Z","moves":[]}"#.utf8)
+    let d = JSONDecoder(); d.dateDecodingStrategy = .iso8601
+    let old = try d.decode(TrashBatch.self, from: legacy)
+    check(old.kind == .clean && old.title == "清理垃圾", "旧版记录按“清理垃圾”读入")
+}
+
 // MARK: - 自定义规则
 
 group("自定义规则：读取和检查") {

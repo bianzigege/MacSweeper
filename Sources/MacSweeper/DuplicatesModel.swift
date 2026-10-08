@@ -72,9 +72,10 @@ final class DuplicatesModel: ObservableObject {
     }
 
     func undo() {
+        guard let id = lastReport?.batchID else { return }
         busyText = L("正在把上次清理的文件放回原处…")
         Task {
-            let r = await Task.detached(priority: .userInitiated) { Undo.restoreLast() }.value
+            let r = await Task.detached(priority: .userInitiated) { Undo.restore(id: id) }.value
             lastReport = nil
             busyText = nil
             if let r { notice = L("已放回 %ld 项（%@）", r.restoredCount, formatBytes(r.restoredBytes)) }

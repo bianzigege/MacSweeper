@@ -44,8 +44,11 @@ public final class ScanSession: @unchecked Sendable {
     let sizes = SizeCalculator()
     /// 扫描开始时查一次哪些 App 在运行，所有规则共用
     public let running = RunningSnapshot.current()
-    /// 同时扫几条规则。实测 6 条最快：再多会互相抢硬盘，反而变慢
-    static let concurrency = 6
+    /// 装了哪些 App（Spotlight 全盘查一次，残留判断、已卸载工具判断共用）
+    public private(set) lazy var inventory: AppInventory.Snapshot = AppInventory.scan()
+    /// 同时扫几条规则：实测 10 核的机器上 6 条最快（再多会互相抢硬盘）。
+    /// 各处的并行扫描都用这个数，别再各自写死
+    public static let concurrency = max(2, min(6, ProcessInfo.processInfo.activeProcessorCount * 6 / 10))
 
     public init() {}
 
@@ -57,8 +60,8 @@ public final class ScanSession: @unchecked Sendable {
         let queue = OperationQueue()
         queue.maxConcurrentOperationCount = Self.concurrency
         for (i, rule) in rules.enumerated() {
-            queue.addOperation { [sizes, running] in
-                let r = Scanner.scan(rule: rule, sizes: sizes, running: running)
+            queue.addOperation { [self] in
+                let r = Scanner.scan(rule: rule, sizes: sizes, running: running, inventory: inventory)
                 lock.lock(); results[i] = r; done += 1; let n = done; lock.unlock()
                 progress?(n, rules.count, rule.name)
             }
@@ -110,12 +113,13 @@ public enum Scanner {
     }
 
     public static func scan(rule: Rule) -> ScanResult {
-        scan(rule: rule, sizes: SizeCalculator(), running: .current())
+        scan(rule: rule, sizes: SizeCalculator(), running: .current(), inventory: nil)
     }
 
-    static func scan(rule: Rule, sizes: SizeCalculator, running: RunningSnapshot) -> ScanResult {
+    static func scan(rule: Rule, sizes: SizeCalculator, running: RunningSnapshot,
+                     inventory: AppInventory.Snapshot?) -> ScanResult {
         var unreadable: [String] = []
-        var found = candidates(for: rule.target, unreadable: &unreadable)
+        var found = candidates(for: rule.target, unreadable: &unreadable, inventory: inventory)
         var skipped = Set<String>()
         if rule.checksOwnerPerItem {
             found = found.filter { c in
@@ -142,7 +146,8 @@ public enum Scanner {
                           skippedRunning: skipped.sorted())
     }
 
-    static func candidates(for target: Target, unreadable: inout [String]) -> [Candidate] {
+    static func candidates(for target: Target, unreadable: inout [String],
+                           inventory: AppInventory.Snapshot? = nil) -> [Candidate] {
         switch target {
         case let .projectDependencies(inactiveDays):
             return ProjectFinder.dependencies(inactiveDays: inactiveDays)
@@ -151,17 +156,17 @@ public enum Scanner {
         case let .codexSessions(olderThanDays):
             return CodexFinder.oldSessionMonths(olderThanDays: olderThanDays)
         case let .uninstalledTools(traces):
-            return ToolTraceFinder.find(traces)
+            return ToolTraceFinder.find(traces, inventory: inventory)
         case let .olderVersions(dirs):
             return VersionFinder.olderVersions(in: dirs)
         case let .brokenLinks(dirs):
             return BrokenLinkFinder.find(in: dirs)
         default:
-            return urls(for: target, unreadable: &unreadable).map { Candidate(url: $0) }
+            return urls(for: target, unreadable: &unreadable, inventory: inventory).map { Candidate(url: $0) }
         }
     }
 
-    static func urls(for target: Target, unreadable: inout [String]) -> [URL] {
+    static func urls(for target: Target, unreadable: inout [String], inventory: AppInventory.Snapshot? = nil) -> [URL] {
         let fm = FileManager.default
         /// 列出目录内容；目录存在但读不了时记下来
         func list(_ dir: URL) -> [URL] {
@@ -197,7 +202,7 @@ public enum Scanner {
             return ChromiumCacheFinder.find(roots: roots, excluding: excluding)
 
         case .leftovers:
-            return LeftoverFinder.find()
+            return LeftoverFinder.find(inventory: inventory)
 
         case let .largeFiles(minBytes):
             return LargeFileFinder.find(minBytes: minBytes)

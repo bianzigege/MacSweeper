@@ -151,8 +151,8 @@ enum CodexFinder {
 // MARK: - 已卸载 AI 工具的残留
 
 enum ToolTraceFinder {
-    static func find(_ traces: [ToolTrace]) -> [Candidate] {
-        let installed = AppInventory.scan().names
+    static func find(_ traces: [ToolTrace], inventory: AppInventory.Snapshot? = nil) -> [Candidate] {
+        let installed = (inventory ?? AppInventory.scan()).names
         let fm = FileManager.default
         var found: [Candidate] = []
         for trace in traces where !trace.appNames.contains(where: { installed.contains($0.lowercased()) }) {

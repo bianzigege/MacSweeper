@@ -37,17 +37,24 @@ extension ContentView {
                             .appendingPathComponent(".Trash"))
                     }
                 }
-            } else if model.trashBytes == nil, model.undoBatch != nil {
+            } else if model.trashBytes == nil, !model.undoHistory.isEmpty {
                 Label("清理的文件还在废纸篓里，确认电脑正常后记得清空，空间才会真正释放", systemImage: "trash")
                     .font(.callout)
             }
-            if let batch = model.undoBatch {
-                HStack {
-                    Label(L("上次清理（%@）移走了 %ld 个项目，共 %@", batch.date.formatted(.dateTime.month().day().hour().minute()), batch.moves.count, formatBytes(batch.bytes)),
-                          systemImage: "clock.arrow.circlepath")
-                        .font(.callout)
-                    Spacer()
-                    Button("撤销上次清理") { confirmingUndo = true }
+            if !model.undoHistory.isEmpty {
+                VStack(alignment: .leading, spacing: 6) {
+                    Label("最近的清理记录，都可以撤销（文件还在废纸篓里）", systemImage: "clock.arrow.circlepath")
+                        .font(.callout.weight(.medium))
+                    ForEach(model.undoHistory.prefix(5)) { batch in
+                        HStack {
+                            Text(L("%@ · %@ · %ld 项，%@", batch.date.formatted(.dateTime.month().day().hour().minute()),
+                                   batch.title, batch.moves.count, formatBytes(batch.bytes)))
+                                .font(.callout).foregroundStyle(.secondary)
+                            Spacer()
+                            Button("撤销") { model.undoCandidate = batch; confirmingUndo = true }
+                                .controlSize(.small)
+                        }
+                    }
                 }
             }
         }

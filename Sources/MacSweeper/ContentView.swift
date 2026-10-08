@@ -62,9 +62,9 @@ struct ContentView: View {
         } message: {
             Text("建议先退出相关 App。文件会进入废纸篓，确认电脑正常后再清空。")
         }
-        .confirmationDialog(L("把上次清理的 %ld 个项目放回原处？", model.undoBatch?.moves.count ?? 0),
+        .confirmationDialog(L("把“%@”移走的 %ld 个项目放回原处？", model.undoCandidate?.title ?? "", model.undoCandidate?.moves.count ?? 0),
                             isPresented: $confirmingUndo, titleVisibility: .visible) {
-            Button("放回原处") { model.undoLast() }
+            Button("放回原处") { if let b = model.undoCandidate { model.undo(b) } }
             Button("取消", role: .cancel) {}
         } message: {
             Text("会从废纸篓里把它们移回原来的位置。原位置已经有新文件的（比如 App 重新生成了缓存）不会覆盖。")

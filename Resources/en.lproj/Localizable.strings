@@ -289,6 +289,10 @@
 "撤销" = "Undo";
 "和留下的那份内容已经不一样了，没有删" = "No longer identical to the copy being kept, so it wasn't removed";
 "这一组没有留下任何一份，为了安全整组跳过" = "No copy in this group would be kept, so the whole group was skipped for safety";
+"最近的清理记录，都可以撤销（文件还在废纸篓里）" = "Recent cleanups, each can be undone (files are still in the Trash)";
+"%@ · %@ · %ld 项，%@" = "%@ · %@ · %ld items, %@";
+"把“%@”移走的 %ld 个项目放回原处？" = "Put back the %ld items removed by “%@”?";
+"正在把“%@”的文件放回原处…" = "Putting back the files from “%@”…";
 "空间地图" = "Space Map";
 "看看空间都被谁占了" = "See what's taking up your space";
 "扫描整个主目录，用色块显示每个文件夹、文件占多大。点色块可以一层层往里看。只看，不删。" = "Scans your whole home folder and shows how big each folder and file is as blocks. Click a block to look inside. View only, nothing is deleted.";

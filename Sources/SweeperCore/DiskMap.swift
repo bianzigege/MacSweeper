@@ -113,7 +113,7 @@ public enum DiskMap {
             var results = [DiskNode?](repeating: nil, count: subdirs.count)
             let resultLock = NSLock()
             let queue = OperationQueue()
-            queue.maxConcurrentOperationCount = 6
+            queue.maxConcurrentOperationCount = ScanSession.concurrency
             for (i, sub) in subdirs.enumerated() {
                 queue.addOperation {
                     let node = self.build(sub, parallelLevels: parallelLevels - 1)

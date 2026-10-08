@@ -8,7 +8,8 @@ let usage = """
   sweep clean               清理所有“可放心清理”的项目（会先列出并询问确认）
   sweep clean <规则ID>...    只清理指定规则，例如：sweep clean user-caches npm-cache
   sweep clean --dry-run     只预览将要清理的内容，不做任何改动
-  sweep undo                撤销上一次清理（或卸载）：把文件从废纸篓放回原处
+  sweep undo                列出最近的清理记录，并撤销最近一次
+  sweep undo <编号>          撤销某一条记录（编号见列表）
   sweep dupes               找重复文件（只列出来，不删）
   sweep map [文件夹]         空间地图：一层层看哪里占得最多（只看，不删）
   sweep apps                列出已安装的 App，很久没用的排前面
@@ -139,56 +140,25 @@ case "clean":
     print("确认电脑一切正常后，再清空废纸篓才会真正释放空间。")
 
 case "undo":
-    guard let batch = Undo.lastBatch() else {
+    let history = Undo.history()
+    guard !history.isEmpty else {
         print("没有可以撤销的清理（还没清理过，或者废纸篓已经清空了）。")
         exit(0)
     }
     let f = DateFormatter(); f.dateFormat = "M 月 d 日 HH:mm"
-    print("上次清理：\(f.string(from: batch.date))，移走了 \(batch.moves.count) 个项目（\(formatBytes(batch.bytes))）。")
-    print("确认放回原处请输入 y 并回车：", terminator: " ")
+    for (i, b) in history.enumerated() {
+        print("  \(i + 1). \(f.string(from: b.date))  \(b.title)  \(b.moves.count) 项（\(formatBytes(b.bytes))）")
+    }
+    let index = args.compactMap { Int($0) }.first ?? 1
+    guard history.indices.contains(index - 1) else { print("没有第 \(index) 条。"); exit(1) }
+    let batch = history[index - 1]
+    print("\n要撤销第 \(index) 条“\(batch.title)”，把 \(batch.moves.count) 个项目放回原处。确认请输入 y 并回车：", terminator: " ")
     guard readLine()?.lowercased() == "y" else { print("已取消。"); exit(0) }
-    let r = Undo.restoreLast()!
+    let r = Undo.restore(id: batch.id)!
     print("已放回 \(r.restoredCount) 个（\(formatBytes(r.restoredBytes))）。")
     if r.occupiedCount > 0 { print("\(r.occupiedCount) 个原位置已经有新文件（App 重新生成了），留在废纸篓里没有覆盖。") }
     if r.goneCount > 0 { print("\(r.goneCount) 个已经从废纸篓清空，找不回来了。") }
     for f in r.failures.prefix(5) { print("  没能放回 \(f.path)：\(f.reason)") }
-
-case "map":
-    let root = args.first { !$0.hasPrefix("-") }.map { URL(fileURLWithPath: ($0 as NSString).expandingTildeInPath) }
-        ?? FileManager.default.homeDirectoryForCurrentUser
-    let start = Date()
-    let tree = DiskMap.build(root: root) { p in
-        FileHandle.standardError.write(Data("\r已扫描 \(p.files) 个文件，\(formatBytes(p.bytes))   ".utf8))
-    }
-    FileHandle.standardError.write(Data("\n".utf8))
-    print("\(root.path.replacingOccurrences(of: NSHomeDirectory(), with: "~")) 一共 \(formatBytes(tree.size))（用时 \(Int(Date().timeIntervalSince(start))) 秒）")
-    func show(_ node: DiskNode, _ depth: Int) {
-        for child in node.children.prefix(depth == 0 ? 12 : 4) {
-            let pct = node.size > 0 ? Double(child.size) / Double(node.size) * 100 : 0
-            print(String(repeating: "    ", count: depth + 1) + lpad(formatBytes(child.size), 10)
-                  + String(format: " %4.1f%%  ", pct) + child.name + (child.kind == .folder ? "/" : ""))
-            if depth < 1 && child.kind == .folder { show(child, depth + 1) }
-        }
-    }
-    show(tree, 0)
-
-case "dupes":
-    let start = Date()
-    let groups = DuplicateFinder.find { p in
-        if p.total > 0 && p.done % 20 == 0 { FileHandle.standardError.write(Data("\r\(p.phase) \(p.done)/\(p.total)   ".utf8)) }
-    }
-    FileHandle.standardError.write(Data("\n".utf8))
-    let saving = groups.reduce(Int64(0)) { $0 + $1.wastedBytes }
-    let clones = groups.filter(\.allClones)
-    print("找到 \(groups.count) 组重复文件，每组只留一份能腾出 \(formatBytes(saving))（用时 \(Int(Date().timeIntervalSince(start))) 秒）")
-    if !clones.isEmpty { print("其中 \(clones.count) 组是克隆副本（共用硬盘空间），删了不省空间，已经不算在里面") }
-    for g in groups.prefix(15) {
-        print("\n" + lpad(formatBytes(g.size), 10) + " × \(g.files.count) 份" + (g.allClones ? "（克隆副本，删了不省空间）" : "，可腾出 \(formatBytes(g.wastedBytes))"))
-        for f in g.files {
-            let mark = f == g.suggestedKeep ? "  留 " : "     "
-            print(mark + f.url.path.replacingOccurrences(of: NSHomeDirectory(), with: "~"))
-        }
-    }
 
 case "apps":
     let apps = AppCatalog.list().sorted {

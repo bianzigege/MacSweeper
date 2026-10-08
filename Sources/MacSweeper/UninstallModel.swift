@@ -163,10 +163,12 @@ final class UninstallModel: ObservableObject {
     }
 
     /// 撤销上次卸载（和“撤销上次清理”是同一份记录）
+    /// 撤销刚才这次卸载（按记录编号，不会误撤别的清理）
     func undo() {
+        guard let id = lastReport?.batchID else { return }
         busyText = L("正在把 %@ 放回原处…", lastUninstalled ?? "")
         Task {
-            let r = await Task.detached(priority: .userInitiated) { Undo.restoreLast() }.value
+            let r = await Task.detached(priority: .userInitiated) { Undo.restore(id: id) }.value
             busyText = nil
             lastReport = nil
             if let r {

@@ -177,42 +177,26 @@ public enum DuplicateCleaner {
     /// 把选中的重复副本移到废纸篓。每组至少留一份：清理前再核对一遍，
     /// 确认留下的那份还在、大小没变、内容和要删的一样，否则这一组整组跳过
     public static func trash(_ groups: [DuplicateGroup], selected: Set<URL>) -> CleanReport {
-        var report = CleanReport()
+        let session = TrashSession(kind: .duplicates, title: L("重复文件"))
         for group in groups {
             let remove = group.files.filter { selected.contains($0.url) }
             let keep = group.files.filter { !selected.contains($0.url) }
             guard !remove.isEmpty else { continue }
             guard let kept = keep.first(where: { FileManager.default.fileExists(atPath: $0.url.path) }) else {
-                report.failures.append((group.files[0].url.path, L("这一组没有留下任何一份，为了安全整组跳过")))
+                session.fail(group.files[0].url, L("这一组没有留下任何一份，为了安全整组跳过"))
                 continue
             }
             let keptDigest = DuplicateFinder.fullDigest(kept.url)
             for file in remove {
-                guard PathGuard.isAllowed(file.url) else {
-                    report.failures.append((file.url.path, L("不在允许范围内")))
-                    continue
-                }
                 // 内容有变化（比如你后来改过）就不删
                 guard keptDigest != nil, DuplicateFinder.fullDigest(file.url) == keptDigest else {
-                    report.failures.append((file.url.path, L("和留下的那份内容已经不一样了，没有删")))
+                    session.fail(file.url, L("和留下的那份内容已经不一样了，没有删"))
                     continue
                 }
-                var inTrash: NSURL?
-                do {
-                    try FileManager.default.trashItem(at: file.url, resultingItemURL: &inTrash)
-                    let freed = group.allClones ? 0 : group.size
-                    report.trashedCount += 1
-                    report.trashedBytes += freed
-                    if let t = inTrash as URL? {
-                        report.moves.append(TrashMove(original: file.url.path, inTrash: t.path, bytes: freed))
-                    }
-                    OperationLog.write("DUPLICATE \(group.size) \(file.url.path)（保留 \(kept.url.path)）")
-                } catch {
-                    report.failures.append((file.url.path, error.localizedDescription))
-                }
+                // 克隆副本删了不省空间，记 0
+                session.trash(file.url, bytes: group.allClones ? 0 : group.size, note: "保留 \(kept.url.path)")
             }
         }
-        if !report.moves.isEmpty { Undo.save(TrashBatch(date: Date(), moves: report.moves)) }
-        return report
+        return session.finish()
     }
 }

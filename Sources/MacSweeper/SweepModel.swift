@@ -30,8 +30,10 @@ final class SweepModel: ObservableObject {
     @Published var collapsed: Set<String> = []
     /// 废纸篓现在占多少（没有权限读取时为 nil）
     @Published var trashBytes: Int64?
-    /// 上一次清理的记录，可以撤销
-    @Published var undoBatch: TrashBatch? = Undo.lastBatch()
+    /// 撤销历史：最近的在前，每条都可以单独撤销
+    @Published var undoHistory: [TrashBatch] = Undo.history()
+    /// 正要撤销的那一条（弹窗确认用）
+    @Published var undoCandidate: TrashBatch?
     @Published var lastUndo: UndoReport?
     /// 最近一次扫描时哪些 App 在运行（界面显示按钮用，不用每画一行都去查系统）
     private var lastRunning: RunningSnapshot?
@@ -74,7 +76,7 @@ final class SweepModel: ObservableObject {
     }
 
     func refreshTrash() {
-        undoBatch = Undo.lastBatch()
+        undoHistory = Undo.history()
         Task {
             let trash = FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent(".Trash")
             trashBytes = await Task.detached(priority: .utility) { () -> Int64? in
@@ -93,13 +95,13 @@ final class SweepModel: ObservableObject {
         NSWorkspace.shared.open([file], withApplicationAt: editor, configuration: .init()) { _, _ in }
     }
 
-    func undoLast() {
+    func undo(_ batch: TrashBatch) {
         phase = .cleaning
-        busyText = L("正在把上次清理的文件放回原处…")
+        busyText = L("正在把“%@”的文件放回原处…", batch.title)
         notice = nil
         lastReport = nil
         Task {
-            lastUndo = await Task.detached(priority: .userInitiated) { Undo.restoreLast() }.value
+            lastUndo = await Task.detached(priority: .userInitiated) { Undo.restore(id: batch.id) }.value
             scan(keepReport: true)
         }
     }

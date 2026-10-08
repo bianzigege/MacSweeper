@@ -134,7 +134,15 @@ SIGN_IDENTITY="Developer ID Application: 你的名字 (TEAMID)" NOTARY_PROFILE=m
 
 ### 撤销
 
-界面顶部有“撤销上次清理”；命令行是 `sweep undo`。原位置已经有新文件的（比如 App 重新生成了缓存）不会覆盖。
+每次清理、卸载、重复文件清理都是一条记录，“清理垃圾”页面顶部列出最近几条，每条都能单独撤销（只要文件还在废纸篓里）；卸载和重复文件页面的“撤销”只撤销自己刚才那一次。命令行：`sweep undo` 列出记录并撤销最近一次，`sweep undo 2` 撤销第 2 条。原位置已经有新文件的（比如 App 重新生成了缓存）不会覆盖。记录存在 `~/Library/Application Support/MacSweeper/trash-history.json`，最多留 30 条。
+
+### 总检查（改完代码跑这一个）
+
+```bash
+./scripts/check.sh
+```
+
+依次：编译全部 → 自检 → 翻译检查 → 打包 .app。任何一步失败就停。发版前再运行 `./scripts/make-dmg.sh`。
 
 ### 自检
 
@@ -142,7 +150,7 @@ SIGN_IDENTITY="Developer ID Application: 你的名字 (TEAMID)" NOTARY_PROFILE=m
 ./scripts/selftest.sh
 ```
 
-检查安全护栏、残留判断、浏览器缓存识别、去重、大小计算、运行检查、撤销、自定义规则、卸载 App、拖进废纸篓提醒、重复文件、空间地图等 116 项关键逻辑。测试文件都建在临时目录里，不碰真实文件；不需要 Xcode。改了 `SweeperCore` 之后先跑一遍。
+检查安全护栏、残留判断、浏览器缓存识别、去重、大小计算、运行检查、撤销、自定义规则、卸载 App、拖进废纸篓提醒、重复文件、空间地图、废纸篓入口、撤销历史等 128 项关键逻辑。测试文件都建在临时目录里，不碰真实文件；不需要 Xcode。改了 `SweeperCore` 之后先跑一遍。
 
 ### 命令行
 
@@ -161,6 +169,8 @@ swift build -c release
 ```
 
 ## 安全设计
+
+- **所有“移到废纸篓”只有一个入口**（`TrashService.swift` 里的 `TrashSession`）：清理垃圾、卸载 App、重复文件都调它。路径护栏、操作日志、撤销记录只在这一处实现，改功能碰不到安全代码
 
 - **只移到废纸篓**，不会永久删除，误删了可以从废纸篓还原
 - 清理前一定会列出清单并要求确认，也可以用 `--dry-run` 只预览
@@ -191,7 +201,9 @@ swift build -c release
 | `scripts/build-app.sh` | 把图形界面打包成 .app |
 | `scripts/make-icon.swift` | 生成 App 图标 |
 | `Sources/SweeperCore/SizeCalculator.swift` | 计算占用空间：用底层 fts 遍历，并记住算过的文件夹 |
-| `Sources/SweeperCore/Undo.swift` | 撤销上次清理 |
+| `Sources/SweeperCore/TrashService.swift` | 唯一的“移到废纸篓”入口：护栏、日志、撤销记录 |
+| `Sources/SweeperCore/Undo.swift` | 撤销历史：逐条撤销 |
+| `scripts/check.sh` | 总检查：编译、自检、翻译、打包 |
 | `Sources/SweeperCore/Uninstaller.swift` | 卸载 App：App 清单、找相关文件并分组、执行卸载 |
 | `Sources/MacSweeper/UninstallModel.swift`、`UninstallView.swift` | 卸载 App 的界面 |
 | `Sources/SweeperCore/Duplicates.swift`、`Sources/MacSweeper/Duplicates*.swift` | 重复文件 |

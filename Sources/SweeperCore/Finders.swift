@@ -130,8 +130,8 @@ enum LeftoverFinder {
     /// 最近这么多天内有改动的，说明还在被使用，不算残留
     static let recentDays: Double = 30
 
-    static func find() -> [URL] {
-        let (installed, appNames) = AppInventory.scan()
+    static func find(inventory: AppInventory.Snapshot? = nil) -> [URL] {
+        let (installed, appNames) = inventory ?? AppInventory.scan()
         let cutoff = Date().addingTimeInterval(-recentDays * 86_400)
         let fm = FileManager.default
         var found: [URL] = []
@@ -189,9 +189,11 @@ enum LeftoverFinder {
 }
 
 /// 收集这台电脑上所有已安装 App（以及其中的辅助程序、扩展）和后台服务的 Bundle ID
-enum AppInventory {
-    /// 返回（所有 Bundle ID，所有 App 名字），都转成小写
-    static func scan() -> (ids: Set<String>, names: Set<String>) {
+public enum AppInventory {
+    public typealias Snapshot = (ids: Set<String>, names: Set<String>)
+
+    /// 返回（所有 Bundle ID，所有 App 名字），都转成小写。要 Spotlight 全盘查一次，一次扫描里只调用一次
+    public static func scan() -> Snapshot {
         var apps = Set<String>()
         // 1. Spotlight 能找到的所有 App，不管装在哪里
         apps.formUnion(spotlightApps())
