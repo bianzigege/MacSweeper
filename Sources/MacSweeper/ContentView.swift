@@ -8,15 +8,22 @@ struct ContentView: View {
     @EnvironmentObject var updates: UpdateChecker
     @State private var tab: Tab = .clean
     @State private var dropTargeted = false
+    /// 简单模式 / 详细模式，记住上次的选择；第一次打开是简单模式
+    @AppStorage("mode") var mode: Mode = .simple
 
     enum Tab { case clean, uninstall, duplicates, map }
+    enum Mode: String { case simple, detailed }
     @State private var confirming = false
     @State var confirmingUndo = false
     @State private var showingSafety = false
 
     var body: some View {
         VStack(spacing: 0) {
-            header
+            if mode == .simple {
+                simpleHeader
+            } else {
+                header
+            }
             Divider()
             if let release = updates.available, !updates.dismissed {
                 HStack {
@@ -30,7 +37,9 @@ struct ContentView: View {
                 .background(.quaternary.opacity(0.4))
                 Divider()
             }
-            if tab == .uninstall {
+            if mode == .simple {
+                SimpleView(mode: $mode)
+            } else if tab == .uninstall {
                 UninstallView()
             } else if tab == .duplicates {
                 DuplicatesView()
@@ -101,6 +110,7 @@ struct ContentView: View {
             openUninstall(url)
         } else if let app = trashed.last {
             // 你拖进废纸篓的 App：打开它留下的文件的清单
+            mode = .detailed
             tab = .uninstall
             uninstall.load()
             uninstall.requestLeftovers(app)
@@ -108,6 +118,7 @@ struct ContentView: View {
     }
 
     private func openUninstall(_ url: URL) {
+        mode = .detailed
         tab = .uninstall
         if uninstall.apps.isEmpty { uninstall.load() }
         uninstall.requestUninstall(url: url)
@@ -125,6 +136,17 @@ struct ContentView: View {
     }
 
     // MARK: 顶部
+
+    /// 简单模式的顶部：只有名字和安全说明
+    private var simpleHeader: some View {
+        HStack(spacing: 12) {
+            Text("MacSweeper").font(.title2.bold())
+            Spacer()
+            Button { showingSafety = true } label: { Label(L("安全说明"), systemImage: "checkmark.shield") }
+                .help(L("安全说明：这个工具怎么保证不删错东西"))
+        }
+        .padding(.horizontal, 20).padding(.vertical, 14)
+    }
 
     private var header: some View {
         HStack(spacing: 12) {
@@ -146,6 +168,7 @@ struct ContentView: View {
             }
             .pickerStyle(.segmented).labelsHidden().fixedSize()
             .padding(.leading, 8)
+            Button(L("简单模式")) { mode = .simple }.controlSize(.small).padding(.leading, 6)
             Spacer()
             if tab == .clean && model.phase == .ready {
                 HStack(spacing: 6) {

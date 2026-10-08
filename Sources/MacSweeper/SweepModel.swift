@@ -167,6 +167,25 @@ final class SweepModel: ObservableObject {
 
     static let scanCountKey = "scanCount"
 
+    // MARK: 简单模式
+
+    /// 简单模式能清的：可放心清理、删了会自动重建、相关 App 没在运行
+    var simpleResults: [ScanResult] {
+        results.filter { $0.rule.safety == .safe && $0.rule.consequence == .rebuilt && isCleanable($0) }
+    }
+    var simpleBytes: Int64 { simpleResults.reduce(0) { $0 + $1.bytes } }
+    /// 同样是缓存，但 App 正在运行，这次先不碰
+    var simpleSkippedBytes: Int64 {
+        results.filter { $0.rule.safety == .safe && $0.rule.consequence == .rebuilt && $0.blocker != nil }
+            .reduce(0) { $0 + $1.bytes }
+    }
+
+    /// 简单模式的一键清理：只勾“会自动重建”的，然后走和详细模式一样的清理流程
+    func cleanSimple() {
+        selected = Set(simpleResults.flatMap { $0.items.map(\.url) })
+        clean()
+    }
+
     /// 把勾选的东西导出成一个文本清单（桌面上），方便发给别人或问 AI“这些能删吗”
     func exportList() -> URL? {
         let f = DateFormatter(); f.dateFormat = "yyyy-MM-dd HH-mm"

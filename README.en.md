@@ -8,7 +8,13 @@
 
 <p align="center"><a href="README.md">中文</a> · English</p>
 
-## Features
+## In three sentences
+
+1. It opens in **Simple mode**: one number (how much cache can be safely cleaned) and one button (Safe Clean). It only touches caches and logs that are rebuilt automatically, skips apps that are running, and never touches chats, files or sign-ins.
+2. Everything only goes to the **Trash** and can be undone with one click. Emptying the Trash is always your own decision.
+3. Switch to **Detailed mode** to see every item, uninstall apps, find duplicates or view the space map. Every item says what it is, what happens if removed and how we know.
+
+## Detailed mode
 
 - **Caches and logs**: app caches, sandboxed app caches, logs, developer caches (npm, Rust, Gradle, Xcode)
 - **Big apps**: WeChat's built-in browser cache (often tens of GB), WeChat temp files, Chrome and Electron app web caches (bookmarks, passwords and sign-ins are never touched)
