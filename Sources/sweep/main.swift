@@ -8,7 +8,10 @@ let usage = """
   sweep clean               清理所有“可放心清理”的项目（会先列出并询问确认）
   sweep clean <规则ID>...    只清理指定规则，例如：sweep clean user-caches npm-cache
   sweep clean --dry-run     只预览将要清理的内容，不做任何改动
-  sweep undo                撤销上一次清理：把文件从废纸篓放回原处
+  sweep undo                撤销上一次清理（或卸载）：把文件从废纸篓放回原处
+  sweep apps                列出已安装的 App，很久没用的排前面
+  sweep uninstall <App名>   卸载 App：先列出相关文件，确认后移到废纸篓
+  sweep uninstall <App名> --dry-run   只预览，不做任何改动
 
 自定义规则：\(CustomRules.file.path)
 
@@ -147,6 +150,59 @@ case "undo":
     if r.occupiedCount > 0 { print("\(r.occupiedCount) 个原位置已经有新文件（App 重新生成了），留在废纸篓里没有覆盖。") }
     if r.goneCount > 0 { print("\(r.goneCount) 个已经从废纸篓清空，找不回来了。") }
     for f in r.failures.prefix(5) { print("  没能放回 \(f.path)：\(f.reason)") }
+
+case "apps":
+    let apps = AppCatalog.list().sorted {
+        ($0.isUnused ? 0 : 1, $0.lastUsed ?? .distantPast) < ($1.isUnused ? 0 : 1, $1.lastUsed ?? .distantPast)
+    }
+    let f = DateFormatter(); f.dateFormat = "yyyy-MM-dd"
+    for a in apps {
+        let used = a.lastUsed.map { f.string(from: $0) } ?? "从没打开过"
+        var tags: [String] = []
+        if a.isUnused { tags.append("很久没用") }
+        if let p = a.protection { tags.append(p == .system ? "系统自带" : p == .itself ? "MacSweeper 自己" : "已保护") }
+        if a.needsPassword { tags.append("需要密码") }
+        if let c = a.homebrewCask { tags.append("Homebrew: \(c)") }
+        print(pad(a.name, max(28, displayWidth(a.name) + 2)) + pad(used, 14) + tags.joined(separator: "、"))
+    }
+
+case "uninstall":
+    let dryRun = args.contains("--dry-run")
+    let query = args.filter { !$0.hasPrefix("-") }.joined(separator: " ").lowercased()
+    guard !query.isEmpty else { print("请写上要卸载的 App 名字，比如：sweep uninstall 钉钉"); exit(1) }
+    let matches = AppCatalog.list().filter {
+        $0.name.lowercased() == query || $0.url.deletingPathExtension().lastPathComponent.lowercased() == query
+    }
+    guard let app = matches.first else { print("没找到叫“\(query)”的 App。用 sweep apps 看看准确的名字。"); exit(1) }
+    if let p = app.protection {
+        print("“\(app.name)”受保护，不能卸载（\(p == .system ? "苹果自带" : p == .itself ? "MacSweeper 自己" : "在保护名单里")）。")
+        exit(1)
+    }
+    FileHandle.standardError.write(Data("正在查找相关文件…\n".utf8))
+    let plan = UninstallPlanner.plan(for: app)
+    let titles: [UninstallItem.Kind: String] = [
+        .bundle: "一定会删 · App 本体", .matched: "默认勾选 · ID 完全对得上的", .launchAgent: "默认勾选 · 开机自启项",
+        .userData: "默认不勾 · 可能有你的数据", .guessed: "默认不勾 · 按名字找到的，不确定是不是它的",
+        .shared: "不会动 · 其他 App 还在用", .systemLevel: "不会动 · 系统级（需要管理员权限）",
+    ]
+    for kind in [UninstallItem.Kind.bundle, .matched, .launchAgent, .userData, .guessed, .shared, .systemLevel] {
+        let items = plan.items.filter { $0.kind == kind }
+        guard !items.isEmpty else { continue }
+        print("\n" + titles[kind]!)
+        for i in items {
+            print("  " + lpad(formatBytes(i.bytes), 10) + "  " + i.what + "  " + i.url.path.replacingOccurrences(of: NSHomeDirectory(), with: "~"))
+        }
+    }
+    if let cask = app.homebrewCask { print("\n这个 App 是用 Homebrew 装的，建议在终端运行：brew uninstall --cask \(cask)") }
+    let chosen = plan.items.filter { $0.kind.selectedByDefault }
+    print("\n将把 \(chosen.count) 项（\(formatBytes(chosen.reduce(0) { $0 + $1.bytes }))）移到废纸篓（只含默认勾选的；其余请用图形界面挑选）。")
+    if app.needsPassword { print("这个 App 归系统所有，移到废纸篓时 macOS 会弹出密码框。") }
+    if dryRun { print("（预览模式，没有做任何改动）"); exit(0) }
+    print("确认卸载请输入 App 名字“\(app.name)”并回车：", terminator: " ")
+    guard readLine()?.trimmingCharacters(in: .whitespaces) == app.name else { print("已取消。"); exit(0) }
+    let report = Uninstaller.uninstall(plan, selected: Set(chosen.map(\.url)))
+    print("已移到废纸篓 \(report.trashedCount) 项（\(formatBytes(report.trashedBytes))）。想反悔可以运行 sweep undo。")
+    for f in report.failures { print("  没能移走 \(f.path)：\(f.reason)") }
 
 case "help", "-h", "--help":
     print(usage)

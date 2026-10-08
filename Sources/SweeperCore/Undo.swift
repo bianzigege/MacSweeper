@@ -58,7 +58,8 @@ public enum Undo {
     /// 撤销上一次清理，完成后清掉记录
     public static func restoreLast() -> UndoReport? {
         guard let batch = lastBatch() else { return nil }
-        let report = restore(batch.moves)
+        // 卸载的 App 要放回“应用程序”文件夹，所以除了主目录，也允许放回 App 的位置
+        let report = restore(batch.moves, allowed: { PathGuard.isAllowed($0) || PathGuard.isAllowedApp($0) })
         try? FileManager.default.removeItem(at: file)   // 只删撤销记录这个小文件
         return report
     }

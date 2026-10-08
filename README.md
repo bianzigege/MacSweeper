@@ -19,6 +19,7 @@
 - **图标不打包进项目**：各 AI 工具的图标在运行时从你电脑上已安装的 App 里读取，仓库里不存放任何其他公司的 logo
 - **逐项勾选**：每一类都能展开，看清楚每个文件夹的大小和修改时间再决定
 - **App 正在运行时自动跳过**它的文件；也可以一键“退出 App 并清理”，清理完自动重新打开
+- **卸载 App**：列出很久没用的 App；选中后按 ⌘⌫（或右键、或把 App 拖进窗口/程序坞图标）打开确认清单，App 和它的缓存、设置、开机自启项一起移到废纸篓，可以撤销
 - **撤销上次清理**：一键把上次移到废纸篓的文件放回原处（App 重开后也能撤销）
 - **顶部总览**：能腾出多少、废纸篓里还有多少没清空；支持搜索和折叠分组
 - **自定义规则**：不用改代码，在规则文件里加自己的清理项
@@ -96,6 +97,21 @@ SIGN_IDENTITY="Developer ID Application: 你的名字 (TEAMID)" NOTARY_PROFILE=m
 
 英文翻译在 `scripts/translations.py` 里。改了界面文字或规则后运行 `python3 scripts/translations.py`：检查每句都有翻译、占位符对得上，并生成 `Resources/en.lproj/Localizable.strings`。自检程序会检查每条内置规则都有翻译。
 
+### 卸载 App
+
+切到顶部的“卸载 App”。很久没用的（超过 90 天没打开或从没打开过）排在前面。选中一个 App 按 **⌘⌫**，或者右键 →“卸载…”，或者把 App 拖进窗口、拖到程序坞里的 MacSweeper 图标上。命令行：`sweep apps`、`sweep uninstall <App名> --dry-run`。
+
+快捷键只打开**确认清单**，不会直接删除。清单分组：
+
+| 分组 | 默认 |
+|---|---|
+| App 本体 | 一定会删 |
+| ID 完全对得上的缓存、设置；你账户下的开机自启项（会先停掉） | 勾选 |
+| 可能有你数据的（应用数据、沙盒）；按名字找到、不确定是不是它的 | 不勾 |
+| 同一厂商其他 App 还在用的共享数据；系统级后台服务 | 不会动，只告诉你 |
+
+安全措施：苹果自带的 App、MacSweeper 自己、你加进保护名单的 App（右键菜单）不能卸载；正在运行的要先退出；确认窗口的默认按钮是“取消”，回车和 Esc 都只会取消；勾选了超过 100MB 可能有你数据的项目会再确认一次；归系统所有的 App 由 macOS 弹出它自己的密码框；全部只移到废纸篓，可以“撤销这次卸载”。用 Homebrew 装的 App 会提示你改用 `brew uninstall`。
+
 ### 撤销
 
 界面顶部有“撤销上次清理”；命令行是 `sweep undo`。原位置已经有新文件的（比如 App 重新生成了缓存）不会覆盖。
@@ -106,7 +122,7 @@ SIGN_IDENTITY="Developer ID Application: 你的名字 (TEAMID)" NOTARY_PROFILE=m
 ./scripts/selftest.sh
 ```
 
-检查安全护栏、残留判断、浏览器缓存识别、去重、大小计算、运行检查、撤销、自定义规则等 58 项关键逻辑。测试文件都建在临时目录里，不碰真实文件；不需要 Xcode。改了 `SweeperCore` 之后先跑一遍。
+检查安全护栏、残留判断、浏览器缓存识别、去重、大小计算、运行检查、撤销、自定义规则、卸载 App 等 93 项关键逻辑。测试文件都建在临时目录里，不碰真实文件；不需要 Xcode。改了 `SweeperCore` 之后先跑一遍。
 
 ### 命令行
 
@@ -156,6 +172,8 @@ swift build -c release
 | `scripts/make-icon.swift` | 生成 App 图标 |
 | `Sources/SweeperCore/SizeCalculator.swift` | 计算占用空间：用底层 fts 遍历，并记住算过的文件夹 |
 | `Sources/SweeperCore/Undo.swift` | 撤销上次清理 |
+| `Sources/SweeperCore/Uninstaller.swift` | 卸载 App：App 清单、找相关文件并分组、执行卸载 |
+| `Sources/MacSweeper/UninstallModel.swift`、`UninstallView.swift` | 卸载 App 的界面 |
 | `Sources/SweeperCore/CustomRules.swift` | 读取和检查自定义规则 |
 | `Sources/selftest/main.swift` | 自检程序 |
 | `scripts/selftest.sh` | 运行自检 |

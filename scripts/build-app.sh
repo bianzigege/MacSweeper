@@ -7,7 +7,7 @@
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
-VERSION="0.8.0"
+VERSION="0.9.0"
 APP="build/MacSweeper.app"
 
 for arch in arm64 x86_64; do
@@ -42,6 +42,15 @@ cat > "$APP/Contents/Info.plist" <<EOF
     <key>LSApplicationCategoryType</key><string>public.app-category.utilities</string>
     <key>CFBundleIconFile</key><string>AppIcon</string>
     <key>NSHighResolutionCapable</key><true/>
+    <key>CFBundleDocumentTypes</key>
+    <array>
+        <dict>
+            <key>CFBundleTypeName</key><string>App</string>
+            <key>CFBundleTypeRole</key><string>Viewer</string>
+            <key>LSHandlerRank</key><string>None</string>
+            <key>LSItemContentTypes</key><array><string>com.apple.application-bundle</string></array>
+        </dict>
+    </array>
     <key>NSDesktopFolderUsageDescription</key><string>扫描桌面上的大文件，看看哪些空间可以腾出来。</string>
     <key>NSDocumentsFolderUsageDescription</key><string>扫描文稿里的大文件，看看哪些空间可以腾出来。</string>
     <key>NSDownloadsFolderUsageDescription</key><string>扫描下载文件夹里的安装包和大文件。</string>

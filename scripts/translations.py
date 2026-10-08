@@ -267,6 +267,85 @@ EN = {
     "失效的命令链接（系统目录）": "Broken command links (system folders)",
     "在系统目录里，需要管理员权限。可以在终端运行 sudo rm 加上下面的路径来删除":
         "These are in system folders and need admin rights. To delete one, run sudo rm followed by its path in Terminal",
+    # —— 卸载 App ——
+    "清理垃圾": "Clean Up",
+    "卸载 App": "Uninstall Apps",
+    "卸载…": "Uninstall…",
+    "卸载 %@": "Uninstall %@",
+    "很久没用的 App：%ld 个，共 %@": "Apps not used in a long time: %ld, %@ in total",
+    "超过 %ld 天没打开过，或者从没打开过": "Not opened in over %ld days, or never opened",
+    "只看很久没用的": "Only unused",
+    "搜索 App": "Search apps",
+    "很久没用": "Unused",
+    "从没打开过": "Never opened",
+    "今天用过": "Used today",
+    "%ld 天前用过": "Used %ld days ago",
+    "系统自带": "Built-in",
+    "MacSweeper 自己": "MacSweeper itself",
+    "已保护": "Protected",
+    "需要密码": "Needs password",
+    "加入保护名单（不能卸载）": "Protect (prevent uninstalling)",
+    "移出保护名单": "Remove Protection",
+    "“%@”是苹果自带的 App，不能卸载": "“%@” is built into macOS and can't be uninstalled",
+    "不能卸载 MacSweeper 自己": "MacSweeper can't uninstall itself",
+    "“%@”在保护名单里。要卸载，先在右键菜单里把它移出保护名单":
+        "“%@” is protected. To uninstall it, remove its protection from the right-click menu first",
+    "只能卸载“应用程序”文件夹里的 App": "Only apps in the Applications folder can be uninstalled",
+    "选中一个 App，按 ⌘⌫ 卸载；也可以把 App 拖进这个窗口": "Select an app and press ⌘⌫ to uninstall, or drag an app into this window",
+    "打开确认清单（⌘⌫）。不会直接删除": "Opens the review list (⌘⌫). Nothing is deleted right away",
+    "所有东西都只是移到废纸篓，可以撤销。勾选你要一起移走的文件。":
+        "Everything only goes to the Trash and can be undone. Check the files you want to remove too.",
+    "%@ 正在运行，要先退出才能卸载": "%@ is running. Quit it before uninstalling",
+    "这个 App 是用 Homebrew 装的，建议在终端运行 brew uninstall --cask %@，不然 Homebrew 会以为它还装着":
+        "This app was installed with Homebrew. Run brew uninstall --cask %@ in Terminal instead, or Homebrew will think it's still installed",
+    "这些需要管理员权限，MacSweeper 不会动。卸载后如果不需要了，可以在终端运行 sudo rm 加上路径删除；不确定的话留着也没关系。":
+        "These need admin rights, so MacSweeper won't touch them. If you no longer need them after uninstalling, run sudo rm followed by the path in Terminal; if unsure, leaving them is fine.",
+    "将移走 %ld 项，共 %@": "%ld items will be removed, %@ in total",
+    "这个 App 归系统所有，macOS 会弹出窗口要你输入电脑密码": "This app is owned by the system, so macOS will ask for your password",
+    "你勾选了可能有你数据的项目（%@）": "You checked items that may contain your data (%@)",
+    "我知道，一起移到废纸篓": "I Understand, Move to Trash",
+    "里面可能有聊天记录、下载的文件、项目等。移到废纸篓后还能撤销，清空废纸篓后就找不回来了。":
+        "They may contain chat history, downloads, projects, and more. You can still undo while they're in the Trash, but not after it's emptied.",
+    "正在卸载 %@…": "Uninstalling %@…",
+    "正在卸载 %@，请在弹出的窗口里输入电脑密码…": "Uninstalling %@. Enter your password in the window that appears…",
+    "正在把 %@ 放回原处…": "Putting %@ back…",
+    "%@ 没有退出，可能在等你保存内容或确认。请切换过去处理一下": "%@ didn't quit. It may be waiting for you to save or confirm something. Switch to it",
+    "已卸载 %@：%ld 项（%@）移到了废纸篓": "Uninstalled %@: %ld items (%@) moved to the Trash",
+    "后悔了可以撤销；确认没问题后清空废纸篓，空间才会真正释放。": "Changed your mind? Undo it. Once all is well, empty the Trash to actually free the space.",
+    "撤销这次卸载": "Undo Uninstall",
+    "已放回 %ld 项（%@）": "Put back %ld items (%@)",
+    "已放回 %ld 项，%ld 项没能放回（可能需要电脑密码），请到废纸篓里手动拖回":
+        "Put back %ld items; %ld couldn't be put back (a password may be needed). Drag them back from the Trash manually",
+    "这个 App 受保护，不能卸载": "This app is protected and can't be uninstalled",
+    "没能移到废纸篓": "Couldn't move to the Trash",
+    "需要电脑密码，你取消了或者没有权限。可以在访达里把它拖到废纸篓": "A password was needed and was canceled or denied. You can drag it to the Trash in Finder",
+    # 确认清单的分组和文件类型
+    "一定会删 · App 本体": "Always removed · The app itself",
+    "默认勾选 · ID 完全对得上的缓存和设置": "Checked · Caches and settings that exactly match the app",
+    "默认勾选 · 开机自启项（会先停掉）": "Checked · Login items (stopped first)",
+    "需要你确认 · 可能有你的数据": "Your call · May contain your data",
+    "需要你确认 · 按名字找到的，不确定是不是它的": "Your call · Found by name, may not belong to it",
+    "不会动 · 同一厂商其他 App 还在用": "Not touched · Still used by the developer's other apps",
+    "不会动 · 系统级（需要管理员权限，见下方说明）": "Not touched · System level (needs admin rights, see below)",
+    "App 本体": "The app itself",
+    "缓存": "Cache",
+    "设置": "Settings",
+    "窗口状态": "Window state",
+    "网络缓存": "Network cache",
+    "网页缓存": "Web cache",
+    "日志": "Logs",
+    "脚本": "Scripts",
+    "Cookie": "Cookies",
+    "应用数据": "App data",
+    "应用数据（沙盒）": "App data (sandbox)",
+    "同一厂商其他 App 还在用的共享数据": "Shared data still used by the developer's other apps",
+    "共享数据": "Shared data",
+    "缓存（按名字找到的）": "Cache (found by name)",
+    "日志（按名字找到的）": "Logs (found by name)",
+    "名字相近，不确定是不是它的": "Similar name, may not belong to it",
+    "开机自启项": "Login item",
+    "系统级后台服务（需要管理员权限）": "System background service (needs admin rights)",
+    "系统级辅助程序（需要管理员权限）": "System helper tool (needs admin rights)",
 }
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -284,6 +363,11 @@ def used_keys():
         s = open(f, encoding="utf-8").read()
         for m in re.finditer(r'\bL\(' + LIT, s):
             keys.add(m.group(1))
+        if f.endswith("Uninstaller.swift") or f.endswith("UninstallView.swift"):
+            # 分组标题、文件类型这些写在数组和元组里，按普通写法扫不到，这两个文件里的中文全部检查
+            for m in re.finditer(LIT, s):
+                if CJK.search(m.group(1)) and "\\(" not in m.group(1):
+                    keys.add(m.group(1))
         if "/MacSweeper/" in f:
             for p in UI_PATTERNS:
                 for m in re.finditer(p, s):

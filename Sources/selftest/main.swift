@@ -275,6 +275,81 @@ group("自定义规则：读取和检查") {
     check(template.problems.isEmpty && template.rules.isEmpty, "示例文件本身格式正确，而且默认停用")
 }
 
+// MARK: - 卸载 App
+
+group("卸载：相关文件的分组") {
+    // 一个假的 App：Demo.app，ID 是 com.test.demo
+    let appURL = makeDir("Apps/Demo.app/Contents")
+        .deletingLastPathComponent()
+    try (["CFBundleIdentifier": "com.test.demo", "CFBundleName": "Demo"] as NSDictionary)
+        .write(to: appURL.appendingPathComponent("Contents/Info.plist"))
+    let lib = "Lib/"
+    makeFile(lib + "Caches/com.test.demo/a")                       // ID 对得上 → 默认勾选
+    makeFile(lib + "Caches/com.test.demo.ShipIt/a")                // ID. 开头 → 默认勾选
+    makeFile(lib + "Caches/com.test.demoother/a")                  // 只是开头像，不算
+    makeFile(lib + "Caches/com.test.demo.helper/a")                // 属于另一个已装的 App，不算
+    makeFile(lib + "Preferences/com.test.demo.plist")
+    makeFile(lib + "Application Support/com.test.demo/db")         // 可能有数据 → 默认不勾
+    makeFile(lib + "Application Support/Demo/db")                  // 和 App 同名 → 默认不勾
+    makeFile(lib + "Application Support/DemoMac/db")               // 名字相近 → 不确定
+    makeFile(lib + "Application Support/Democracy/db")             // 名字只是碰巧开头一样，不算
+    makeFile(lib + "Group Containers/ABCDE12345.com.test.shared/x")   // 同厂商还有别的 App → 共享，不能删
+    makeFile(lib + "Group Containers/ABCDE12345.com.test.other.g/x")  // 明确属于别的 App → 不列
+    try (["Label": "com.test.demo.agent"] as NSDictionary)
+        .write(to: makeDir(lib + "LaunchAgents").appendingPathComponent("com.test.demo.agent.plist"))
+    try (["Label": "netdisk", "ProgramArguments": [appURL.path + "/Contents/MacOS/helper"]] as NSDictionary)
+        .write(to: sandbox.appendingPathComponent(lib + "LaunchAgents/netdisk.plist"))   // 名字看不出来，但启动的是它
+    try (["Label": "other", "ProgramArguments": ["/usr/bin/true"]] as NSDictionary)
+        .write(to: sandbox.appendingPathComponent(lib + "LaunchAgents/other.plist"))
+    makeFile("SysLib/LaunchDaemons/com.test.daemon.plist")         // 系统级 → 只告诉你
+
+    let app = AppInfo(url: appURL, name: "Demo", bundleID: "com.test.demo", version: nil, lastUsed: nil,
+                      protection: nil, needsPassword: false, homebrewCask: nil)
+    let plan = UninstallPlanner.plan(for: app, library: sandbox.appendingPathComponent("Lib"),
+                                     systemLibrary: sandbox.appendingPathComponent("SysLib"),
+                                     installedIDs: ["com.test.other", "com.test.demo.helper"])
+    let kinds = Dictionary(plan.items.map { (String($0.url.path.dropFirst(sandbox.path.count + 1)), $0.kind) },
+                           uniquingKeysWith: { a, _ in a })
+    let expect: [String: UninstallItem.Kind] = [
+        "Apps/Demo.app": .bundle,
+        "Lib/Caches/com.test.demo": .matched, "Lib/Caches/com.test.demo.ShipIt": .matched,
+        "Lib/Preferences/com.test.demo.plist": .matched,
+        "Lib/Application Support/com.test.demo": .userData, "Lib/Application Support/Demo": .userData,
+        "Lib/Application Support/DemoMac": .guessed,
+        "Lib/Group Containers/ABCDE12345.com.test.shared": .shared,
+        "Lib/LaunchAgents/com.test.demo.agent.plist": .launchAgent, "Lib/LaunchAgents/netdisk.plist": .launchAgent,
+        "SysLib/LaunchDaemons/com.test.daemon.plist": .systemLevel,
+    ]
+    for (path, kind) in expect { check(kinds[path] == kind, "\(path) 应该是 \(kind)（实际：\(String(describing: kinds[path]))）") }
+    for path in ["Lib/Caches/com.test.demoother", "Lib/Caches/com.test.demo.helper", "Lib/Application Support/Democracy",
+                 "Lib/Group Containers/ABCDE12345.com.test.other.g", "Lib/LaunchAgents/other.plist"] {
+        check(kinds[path] == nil, "\(path) 不属于它，不该列出来")
+    }
+    check(plan.items.filter { $0.kind.selectedByDefault }.allSatisfy { [.bundle, .matched, .launchAgent].contains($0.kind) },
+          "默认勾选的只有 App 本体、ID 对得上的、开机自启项")
+    check(!UninstallItem.Kind.shared.removable && !UninstallItem.Kind.systemLevel.removable, "共享的和系统级的不能删")
+}
+
+group("卸载：哪些 App 不能卸载") {
+    check(AppCatalog.info(for: URL(fileURLWithPath: "/System/Applications/Calculator.app")).protection == .system, "系统自带的受保护")
+    if fm.fileExists(atPath: "/Applications/Safari.app") {
+        check(AppCatalog.info(for: URL(fileURLWithPath: "/Applications/Safari.app")).protection == .system, "装在“应用程序”里的苹果 App 也受保护")
+    }
+    // 受保护的 App，就算直接调用卸载也会被拒绝，什么都不动
+    let calc = AppCatalog.info(for: URL(fileURLWithPath: "/System/Applications/Calculator.app"))
+    let report = Uninstaller.uninstall(UninstallPlan(app: calc, items: [
+        UninstallItem(url: calc.url, kind: .bundle, bytes: 0, what: "")]), selected: [calc.url])
+    check(report.trashedCount == 0 && !report.failures.isEmpty && fm.fileExists(atPath: calc.url.path), "卸载受保护的 App 会被拒绝")
+    let ok = { PathGuard.isAllowedApp(URL(fileURLWithPath: $0)) }
+    check(ok("/Applications/Foo.app") && ok("/Applications/Adobe/Foo.app") && ok(home + "/Applications/Foo.app"), "“应用程序”里的 App 可以卸载")
+    check(!ok("/Applications/a/b/Foo.app") && !ok("/System/Applications/Foo.app") && !ok("/Applications/Foo")
+          && !ok("/Applications/../Foo.app"), "别的位置、太深的、不是 .app 的都不行")
+    check(!UninstallPlanner.looksRelated("codex", to: "code") && !UninstallPlanner.looksRelated("democracy", to: "demo"),
+          "名字只是碰巧开头一样的不算（Code 和 Codex）")
+    check(UninstallPlanner.looksRelated("docker desktop", to: "docker") && UninstallPlanner.looksRelated("dingtalkmac", to: "dingtalk"),
+          "App 名 + 常见后缀的算")
+}
+
 // MARK: - 翻译
 
 group("英文翻译：每条内置规则的名称、说明、分类、工具名都有翻译") {
