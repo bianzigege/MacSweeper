@@ -141,6 +141,54 @@ final class SweepModel: ObservableObject {
         results.filter(isCleanable).map { $0.keeping(selected) }.filter { !$0.items.isEmpty }
     }
 
+    // MARK: 看过才能勾
+
+    /// 展开看过明细的规则。“需确认”要看过才能整类勾选
+    @Published var viewed: Set<String> = []
+    func markViewed(_ id: String) { viewed.insert(id) }
+
+    enum CategoryCheck { case allowed, needsView, perItemOnly }
+
+    /// 这一类能不能整类勾选：删了找不回来的只能逐项勾；需确认的要先展开看过
+    func categoryCheck(_ r: ScanResult) -> CategoryCheck {
+        if r.rule.consequence == .lost { return .perItemOnly }
+        if r.rule.safety == .review && !viewed.contains(r.id) { return .needsView }
+        return .allowed
+    }
+
+    /// 确认窗口里按类别列出的明细
+    var confirmBreakdown: String {
+        selectedResults.map { L($0.rule.name) + "  " + formatBytes($0.bytes) }.joined(separator: "\n")
+    }
+
+    /// 勾选里删了找不回来的项目
+    var selectedLost: [ScanResult] { selectedResults.filter { $0.rule.consequence == .lost } }
+    var selectedLostCount: Int { selectedLost.reduce(0) { $0 + $1.items.count } }
+
+    static let scanCountKey = "scanCount"
+
+    /// 把勾选的东西导出成一个文本清单（桌面上），方便发给别人或问 AI“这些能删吗”
+    func exportList() -> URL? {
+        let f = DateFormatter(); f.dateFormat = "yyyy-MM-dd HH-mm"
+        var lines = [L("MacSweeper 清理清单 %@", f.string(from: Date())),
+                     L("以下是准备移到废纸篓的项目。标签含义：会自动重建 = 缓存日志；要重新下载 = 需要时能再弄回来；找不回来 = 你的数据或作品"), ""]
+        for r in selectedResults {
+            let tag = ConsequenceBadge.shortText(r.rule.consequence)
+            lines.append("## \(L(r.rule.name))（\(formatBytes(r.bytes))）[\(tag)]")
+            lines.append(L("这是什么：%@", L(r.rule.detail)))
+            lines.append(L("我们怎么知道的：%@", r.rule.evidence))
+            for item in r.items {
+                lines.append("  - \(formatBytes(item.bytes))  \(item.url.path)")
+            }
+            lines.append("")
+        }
+        lines.append(L("合计 %ld 项，%@", selectedCount, formatBytes(selectedBytes)))
+        let url = FileManager.default.homeDirectoryForCurrentUser
+            .appendingPathComponent("Desktop/" + L("MacSweeper 清理清单") + " \(f.string(from: Date())).txt")
+        guard (try? lines.joined(separator: "\n").write(to: url, atomically: true, encoding: .utf8)) != nil else { return nil }
+        return url
+    }
+
     func state(of r: ScanResult) -> CheckState {
         let n = r.items.filter { selected.contains($0.url) }.count
         return n == 0 ? .off : (n == r.items.count ? .on : .mixed)
@@ -178,8 +226,10 @@ final class SweepModel: ObservableObject {
             guard generation == scanGeneration else { return }
             show(first)
             refreshTrash()
-            // 默认只勾选“可放心清理”、而且相关 App 没在运行的
-            selected = Set(results.filter { $0.rule.safety == .safe && isCleanable($0) }
+            // 第一次用什么都不勾，让人先看一眼分类；之后默认勾“可放心清理”（删了会自动重建的）、而且相关 App 没在运行的
+            let scans = UserDefaults.standard.integer(forKey: Self.scanCountKey)
+            UserDefaults.standard.set(scans + 1, forKey: Self.scanCountKey)
+            selected = scans == 0 ? [] : Set(results.filter { $0.rule.safety == .safe && $0.rule.consequence == .rebuilt && isCleanable($0) }
                 .flatMap { $0.items.map(\.url) })
             refreshFreeSpace()
             phase = .ready
@@ -280,6 +330,7 @@ final class SweepModel: ObservableObject {
 
     /// 点类别的勾选框：全选时变全不选，否则变全选
     func toggle(_ r: ScanResult) {
+        guard categoryCheck(r) == .allowed else { return }
         let urls = r.items.map(\.url)
         if state(of: r) == .on { selected.subtract(urls) } else { selected.formUnion(urls) }
     }

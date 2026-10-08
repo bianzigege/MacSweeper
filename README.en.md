@@ -37,6 +37,8 @@ Download the latest `MacSweeper-x.y.z.dmg` from [Releases](../../releases) and d
 
 ## Safety
 
+**Safety you can see**: every rule carries an “if removed” label (rebuilt automatically / re-download needed / not recoverable), every category expands into an explanation card (what it is, what happens, how we know), “review first” categories must be expanded before they can be checked as a whole, non-recoverable items can only be checked one by one and are flagged in the confirmation, the first scan pre-selects nothing, large files show their type, download origin and last-opened date with a preview, and “Export list” saves what you're about to remove as a text file to share or ask about.
+
 - Files are **only moved to the Trash**, never deleted. You empty the Trash yourself
 - You always see the list and confirm before anything is moved; the CLI has `--dry-run`
 - Only files inside your home folder; protected folders (Desktop, Documents, Library…) themselves are never touched

@@ -12,6 +12,7 @@ struct ContentView: View {
     enum Tab { case clean, uninstall, duplicates, map }
     @State private var confirming = false
     @State var confirmingUndo = false
+    @State private var showingSafety = false
 
     var body: some View {
         VStack(spacing: 0) {
@@ -66,6 +67,7 @@ struct ContentView: View {
         }
         .onReceive(NotificationCenter.default.publisher(for: .uninstallRequested)) { _ in takePending() }
         .onAppear { takePending() }
+        .sheet(isPresented: $showingSafety) { SafetyView() }
         // 菜单栏里点了“扫描一下”
         .onReceive(NotificationCenter.default.publisher(for: .scanRequested)) { _ in
             tab = .clean
@@ -78,7 +80,7 @@ struct ContentView: View {
             Button("移到废纸篓", role: .destructive) { model.clean() }
             Button("取消", role: .cancel) {}
         } message: {
-            Text("建议先退出相关 App。文件会进入废纸篓，确认电脑正常后再清空。")
+            Text(confirmMessage)
         }
         .confirmationDialog(L("把“%@”移走的 %ld 个项目放回原处？", model.undoCandidate?.title ?? "", model.undoCandidate?.moves.count ?? 0),
                             isPresented: $confirmingUndo, titleVisibility: .visible) {
@@ -111,6 +113,17 @@ struct ContentView: View {
         uninstall.requestUninstall(url: url)
     }
 
+    /// 确认窗口：按类别列明细，删了找不回来的单独点出来
+    private var confirmMessage: String {
+        var text = model.confirmBreakdown
+        if model.selectedLostCount > 0 {
+            text += "\n\n" + L("⚠️ 其中 %ld 项删了找不回来（清空废纸篓后就没了）：%@", model.selectedLostCount,
+                                 model.selectedLost.map { L($0.rule.name) }.joined(separator: L("、")))
+        }
+        text += "\n\n" + L("文件只会进入废纸篓，可以撤销；确认电脑正常后再清空废纸篓。")
+        return text
+    }
+
     // MARK: 顶部
 
     private var header: some View {
@@ -119,20 +132,20 @@ struct ContentView: View {
                 .resizable()
                 .frame(width: 44, height: 44)
             VStack(alignment: .leading, spacing: 2) {
-                HStack(spacing: 12) {
-                    Text("MacSweeper").font(.title2.bold())
-                    Picker("", selection: $tab) {
-                        Text(L("清理垃圾")).tag(Tab.clean)
-                        Text(L("卸载 App")).tag(Tab.uninstall)
-                        Text(L("重复文件")).tag(Tab.duplicates)
-                        Text(L("空间地图")).tag(Tab.map)
-                    }
-                    .pickerStyle(.segmented).labelsHidden().fixedSize()
-                }
+                Text("MacSweeper").font(.title2.bold())
                 Text(L("磁盘剩余空间：%@", formatBytes(model.freeBytes)) + "  ·  v" + UpdateChecker.current)
                     .font(.callout).foregroundStyle(.secondary)
-                    .fixedSize()
             }
+            .fixedSize()
+            // 四个功能的切换。放在标题旁边、和图标同一行，别放进标题的竖排里（会把整行撑高）
+            Picker("", selection: $tab) {
+                Text(L("清理垃圾")).tag(Tab.clean)
+                Text(L("卸载 App")).tag(Tab.uninstall)
+                Text(L("重复文件")).tag(Tab.duplicates)
+                Text(L("空间地图")).tag(Tab.map)
+            }
+            .pickerStyle(.segmented).labelsHidden().fixedSize()
+            .padding(.leading, 8)
             Spacer()
             if tab == .clean && model.phase == .ready {
                 HStack(spacing: 6) {
@@ -147,6 +160,9 @@ struct ContentView: View {
                 }
                 .padding(.horizontal, 8).padding(.vertical, 5)
                 .background(.quaternary.opacity(0.6), in: RoundedRectangle(cornerRadius: 7))
+                Button { showingSafety = true } label: { Label(L("安全说明"), systemImage: "checkmark.shield") }
+                    .labelStyle(.iconOnly)
+                    .help(L("安全说明：这个工具怎么保证不删错东西"))
                 Button { model.openCustomRules() } label: { Label("自定义规则", systemImage: "slider.horizontal.3") }
                     .labelStyle(.iconOnly)
                     .help("自定义规则：打开规则文件，改完保存后点“重新扫描”生效")
@@ -282,6 +298,11 @@ struct ContentView: View {
                 Text(L("%ld 个项目", model.selectedCount)).font(.caption).foregroundStyle(.secondary)
             }
             Spacer()
+            Button(L("导出清单")) {
+                if let url = model.exportList() { NSWorkspace.shared.activateFileViewerSelecting([url]) }
+            }
+            .disabled(model.selectedBytes == 0)
+            .help(L("把勾选的项目存成一个文本文件放在桌面，可以发给懂的人或者问 AI 这些能不能删"))
             Button { confirming = true } label: {
                 Label("移到废纸篓", systemImage: "trash").frame(minWidth: 110)
             }

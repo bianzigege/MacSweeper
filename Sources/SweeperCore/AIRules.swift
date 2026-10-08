@@ -22,9 +22,9 @@ extension RuleBook {
 
     private static func ai(_ id: String, _ name: String, tool: String, icon: String?, _ safety: Safety,
                            _ detail: String, _ target: Target, quit: [String] = [],
-                           minAgeDays: Int? = nil) -> Rule {
+                           minAgeDays: Int? = nil, consequence: Consequence? = nil) -> Rule {
         Rule(id: id, name: name, category: category, safety: safety, detail: detail, target: target,
-             quitApps: quit, minAgeDays: minAgeDays, tool: tool, iconBundleID: icon)
+             quitApps: quit, minAgeDays: minAgeDays, tool: tool, iconBundleID: icon, consequence: consequence)
     }
 
     static let aiTools: [Rule] = [
@@ -37,14 +37,14 @@ extension RuleBook {
            .contents(of: "\(codexHome)/cache"), quit: [App.codex, "process:codex"]),
         ai("codex-old-sessions", "旧对话记录", tool: "Codex", icon: App.codex, .review,
            "两个月以前的对话，按月份列出。删除后，这些对话在 Codex 里就找不到、也不能接着聊了",
-           .codexSessions(olderThanDays: 60), quit: [App.codex, "process:codex"]),
+           .codexSessions(olderThanDays: 60), quit: [App.codex, "process:codex"], consequence: .lost),
         ai("codex-logs", "运行日志", tool: "Codex", icon: App.codex, .review,
            "运行日志数据库，不含对话内容。删除后 Codex 会重新生成",
            .paths(["\(codexHome)/logs_*.sqlite", "\(codexHome)/logs_*.sqlite-wal", "\(codexHome)/logs_*.sqlite-shm"]),
            quit: [App.codex, "process:codex"]),
         ai("codex-images", "生成的图片", tool: "Codex", icon: App.codex, .review,
            "Codex 帮你生成的图片，按对话分文件夹。是你的作品，删除前先确认需要的已经另存",
-           .contents(of: "\(codexHome)/generated_images")),
+           .contents(of: "\(codexHome)/generated_images"), consequence: .lost),
         ai("codex-all", "Codex 数据（全部）", tool: "Codex", icon: App.codex, .reportOnly,
            "包含上面几项。其余是对话索引数据库、插件和设置",
            .paths([codexHome, "~/Library/Application Support/Codex", "~/Library/Caches/com.openai.codex",
@@ -72,10 +72,10 @@ extension RuleBook {
                    "\(chatcutSupport)/acp-agents/npm/_logs"]), quit: [App.chatcut, "process:ChatCut"]),
         ai("chatcut-agent-workspaces", "AI 助手工作文件夹", tool: "ChatCut", icon: App.chatcut, .review,
            "AI 剪辑助手处理每个项目时用的工作文件夹，可能有中间素材。对应项目做完了可以删",
-           .contents(of: "\(chatcutSupport)/acp-workspaces/*"), quit: [App.chatcut, "process:ChatCut"]),
+           .contents(of: "\(chatcutSupport)/acp-workspaces/*"), quit: [App.chatcut, "process:ChatCut"], consequence: .lost),
         ai("chatcut-backups", "项目自动备份", tool: "ChatCut", icon: App.chatcut, .review,
            "剪辑项目的自动备份，按项目分文件夹。项目本身不受影响",
-           .contents(of: "\(chatcutSupport)/project-backups"), quit: [App.chatcut, "process:ChatCut"]),
+           .contents(of: "\(chatcutSupport)/project-backups"), quit: [App.chatcut, "process:ChatCut"], consequence: .lost),
         ai("chatcut-all", "ChatCut 数据（全部）", tool: "ChatCut", icon: App.chatcut, .reportOnly,
            "包含上面几项。projects 里是你的剪辑项目，请在 ChatCut 里管理",
            .paths([chatcutSupport, "~/Library/Caches/chatcut-desktop-updater", "~/Library/Caches/io.chatcut.desktop"])),
@@ -142,7 +142,7 @@ extension RuleBook {
                          paths: ["~/.craft-agent", "~/Library/Application Support/@craft-agent"]),
                ToolTrace("Ollama", apps: ["Ollama"], paths: ["~/.ollama", "~/Library/Application Support/Ollama"]),
                ToolTrace("CodexBar", apps: ["CodexBar"], paths: ["~/Library/Application Support/CodexBar"]),
-           ])),
+           ]), consequence: .lost),
         ai("broken-links", "失效的命令链接", tool: "命令行", icon: nil, .safe,
            "指向已删除 App 的命令（如 trae、codexbar），留着只会在终端里报错",
            .brokenLinks(["~/.local/bin", "~/bin", "~/.npm-global/bin"])),

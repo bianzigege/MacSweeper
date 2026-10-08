@@ -1,5 +1,15 @@
 import Foundation
 
+/// 删了会怎样：给用户看的三档标签，比“安全等级”更直白
+public enum Consequence: String, Sendable {
+    /// 会自动重建：缓存、日志，程序下次用到会重新生成
+    case rebuilt
+    /// 要重新下载或重新生成：安装包、依赖、旧版本，需要时能再弄回来
+    case redownload
+    /// 找不回来：你的数据、作品、对话记录，清空废纸篓后就没了
+    case lost
+}
+
 /// 规则的安全等级
 public enum Safety: String, Sendable {
     /// 可放心清理：删掉后程序会自动重新生成
@@ -71,6 +81,30 @@ public struct Rule: Sendable, Identifiable {
     public let tool: String?
     /// 图标从哪个 App 读取（Bundle ID）。没装这个 App 时显示首字母
     public let iconBundleID: String?
+    /// 删了会怎样
+    public let consequence: Consequence
+
+    /// “我们怎么知道的”：按查找方式自动生成的一句解释
+    public var evidence: String {
+        switch target {
+        case let .contents(of: path, _): return L("在 %@ 里，这个位置是系统或 App 专门放这类文件的地方", short(path))
+        case let .paths(paths): return L("按固定位置找到的：%@", paths.map(short).joined(separator: L("、")))
+        case let .files(dir, exts): return L("在 %@ 里，按文件扩展名（%@）找到的", short(dir), exts.joined(separator: "/"))
+        case .chromiumCaches: return L("浏览器引擎的缓存目录（Cache、Service Worker 缓存），只认这几个固定名字，不碰 Cookie、书签和网站数据")
+        case .leftovers: return L("文件夹名是某个 App 的 ID，但电脑上已经没有这个 App，而且最近 30 天没改过")
+        case .largeFiles: return L("主目录里超过 500MB 的单个文件，按大小找到的，和内容无关")
+        case .projectDependencies: return L("项目文件夹里叫 node_modules、.venv 这类名字的目录，重新安装依赖就能恢复")
+        case .staleProjects: return L("有 package.json、.git 等标记的项目文件夹，超过 60 天没改过")
+        case .codexSessions: return L("Codex 按年月存放对话的目录，整月都早于两个月前")
+        case .uninstalledTools: return L("工具的 App 已经不在“应用程序”里，这些是它固定会留下的文件夹")
+        case .olderVersions: return L("同一个目录下按版本号命名的文件夹，只保留最新的")
+        case .brokenLinks: return L("命令链接指向的文件已经不存在")
+        }
+    }
+
+    private func short(_ path: String) -> String {
+        path.replacingOccurrences(of: FileManager.default.homeDirectoryForCurrentUser.path, with: "~")
+    }
 
     /// 没指定 quitApps 的浏览器类缓存，或者明确要求逐项检查的规则
     var checksOwnerPerItem: Bool {
@@ -80,7 +114,9 @@ public struct Rule: Sendable, Identifiable {
 
     public init(id: String, name: String, category: String, safety: Safety, detail: String,
                 target: Target, quitApps: [String] = [], skipsRunningApps: Bool = false, minAgeDays: Int? = nil,
-                tool: String? = nil, iconBundleID: String? = nil) {
+                tool: String? = nil, iconBundleID: String? = nil, consequence: Consequence? = nil) {
+        // 没写的按安全等级推：可放心清理 → 会自动重建；需确认 → 要重新下载；只报告 → 找不回来
+        self.consequence = consequence ?? (safety == .safe ? .rebuilt : safety == .review ? .redownload : .lost)
         self.id = id
         self.name = name
         self.category = category
@@ -125,11 +161,11 @@ public enum RuleBook {
              target: .files(in: "~/Downloads", extensions: ["dmg", "pkg", "mpkg"])),
         Rule(id: "leftovers", name: "已卸载 App 的残留", category: "系统", safety: .review,
              detail: "找不到对应 App 的设置和数据文件夹，最近 30 天内有改动的不算。也可能属于命令行工具，请展开确认",
-             target: .leftovers),
+             target: .leftovers, consequence: .lost),
 
         Rule(id: "large-files", name: "大文件", category: "文件", safety: .review,
              detail: "主目录里超过 500MB 的单个文件，比如旧视频、安装镜像、虚拟机、压缩包。请展开逐个确认",
-             target: .largeFiles(minBytes: 500_000_000)),
+             target: .largeFiles(minBytes: 500_000_000), consequence: .lost),
 
         // MARK: 微信
         Rule(id: "wechat-browser", name: "微信内置浏览器缓存", category: "微信", safety: .safe,
@@ -144,7 +180,7 @@ public enum RuleBook {
         Rule(id: "wechat-media-cache", name: "微信图片视频缓存", category: "微信", safety: .review,
              detail: "按月份存放的聊天图片、视频缓存。删除后，旧消息里的部分图片可能需要重新下载，或者已经过期看不了",
              target: .contents(of: "\(wechat)/xwechat_files/*/cache"),
-             quitApps: ["com.tencent.xinWeChat"]),
+             quitApps: ["com.tencent.xinWeChat"], consequence: .lost),
 
         // MARK: 飞书（两个版本：国内版 Lark.app 是沙盒 App，国际版 LarkSuite.app 不是）
         Rule(id: "feishu-browser", name: "飞书内置浏览器缓存", category: "飞书", safety: .safe,

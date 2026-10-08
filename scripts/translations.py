@@ -407,6 +407,83 @@ EN = {
     "有新版本 %@（当前 %@）": "Version %@ is available (you have %@)",
     "去下载": "Download",
 
+    # —— 说明卡：删了会怎样、我们怎么知道的 ——
+    "这是什么": "What it is",
+    "删了会怎样": "If removed",
+    "我们怎么知道的": "How we know",
+    "会自动重建": "Rebuilt automatically",
+    "要重新下载": "Re-download needed",
+    "找不回来": "Not recoverable",
+    "会自动重建：这是缓存或日志，程序下次用到会重新生成，你不会察觉区别":
+        "Rebuilt automatically: this is cache or logs; the app regenerates it next time and you won't notice a difference",
+    "要重新下载或重新生成：以后需要时能再弄回来（重新下载、重新安装依赖、重新登录），但要花点时间":
+        "Re-download or regenerate: you can get it back when needed (download again, reinstall dependencies, sign in again), but it takes time",
+    "找不回来：这是你的数据或作品，移到废纸篓后还能撤销，清空废纸篓就没了。请逐项看清楚":
+        "Not recoverable: this is your data or work. You can still undo while it's in the Trash, but once the Trash is emptied it's gone. Review each item",
+    "属于 %@": "Belongs to %@",
+    "需确认的项目要先展开看一眼，再整类勾选": "Expand and look first; then you can check the whole category",
+    "这类删了找不回来，只能展开后逐项勾选": "These can't be recovered, so expand and check items one by one",
+    "⚠️ 其中 %ld 项删了找不回来（清空废纸篓后就没了）：%@": "⚠️ %ld of these can't be recovered once the Trash is emptied: %@",
+    "文件只会进入废纸篓，可以撤销；确认电脑正常后再清空废纸篓。": "Files only go to the Trash and can be undone; empty the Trash once everything works normally.",
+    "在 %@ 里，这个位置是系统或 App 专门放这类文件的地方": "Inside %@, the place where the system or the app keeps exactly this kind of file",
+    "按固定位置找到的：%@": "Found at a fixed location: %@",
+    "在 %@ 里，按文件扩展名（%@）找到的": "Inside %@, found by file extension (%@)",
+    "浏览器引擎的缓存目录（Cache、Service Worker 缓存），只认这几个固定名字，不碰 Cookie、书签和网站数据":
+        "Browser-engine cache folders (Cache, Service Worker cache), only these fixed names; cookies, bookmarks and site data are never touched",
+    "文件夹名是某个 App 的 ID，但电脑上已经没有这个 App，而且最近 30 天没改过":
+        "The folder is named after an app's ID, but that app is no longer installed and nothing changed in the last 30 days",
+    "主目录里超过 500MB 的单个文件，按大小找到的，和内容无关": "Single files over 500 MB in your home folder, found by size alone, regardless of content",
+    "项目文件夹里叫 node_modules、.venv 这类名字的目录，重新安装依赖就能恢复":
+        "Folders named node_modules, .venv and the like inside project folders; reinstalling dependencies brings them back",
+    "有 package.json、.git 等标记的项目文件夹，超过 60 天没改过": "Project folders (with package.json, .git, etc.) untouched for over 60 days",
+    "Codex 按年月存放对话的目录，整月都早于两个月前": "Codex's year/month conversation folders, where the whole month is older than two months",
+    "工具的 App 已经不在“应用程序”里，这些是它固定会留下的文件夹": "The tool's app is no longer in Applications; these are the folders it always leaves behind",
+    "同一个目录下按版本号命名的文件夹，只保留最新的": "Version-numbered folders in the same directory; only the newest is kept",
+    "命令链接指向的文件已经不存在": "The command link points to a file that no longer exists",
+
+    # —— 大文件明细、导出清单、安全说明 ——
+    "视频": "Video", "图片": "Image", "音频": "Audio", "安装包/镜像": "Installer/image", "压缩包": "Archive",
+    "虚拟机": "Virtual machine", "文档": "Document", "数据库": "Database", "其他": "Other",
+    "从 %@ 下载的": "Downloaded from %@",
+    "不是下载的，可能是你自己做的": "Not a download; probably something you made",
+    "今天打开过": "Opened today",
+    "最后打开：%ld 天前": "Last opened %ld days ago",
+    "没有打开记录": "No record of being opened",
+    "预览（看看里面是什么）": "Preview (see what's inside)",
+    "导出清单": "Export List",
+    "把勾选的项目存成一个文本文件放在桌面，可以发给懂的人或者问 AI 这些能不能删":
+        "Saves the checked items as a text file on the Desktop, so you can send it to someone who knows or ask an AI whether they're safe to remove",
+    "MacSweeper 清理清单": "MacSweeper cleanup list",
+    "MacSweeper 清理清单 %@": "MacSweeper cleanup list %@",
+    "以下是准备移到废纸篓的项目。标签含义：会自动重建 = 缓存日志；要重新下载 = 需要时能再弄回来；找不回来 = 你的数据或作品":
+        "Items about to be moved to the Trash. Labels: rebuilt automatically = caches/logs; re-download needed = can be obtained again; not recoverable = your data or work",
+    "这是什么：%@": "What it is: %@",
+    "我们怎么知道的：%@": "How we know: %@",
+    "合计 %ld 项，%@": "Total: %ld items, %@",
+    "安全说明": "Safety",
+    "安全说明：这个工具怎么保证不删错东西": "Safety: how this tool avoids removing the wrong things",
+    "MacSweeper 怎么保证安全": "How MacSweeper keeps you safe",
+    "关闭": "Close",
+    "不放心的话，可以自己验证：": "Not convinced? Check for yourself:",
+    "查看操作日志": "View Operation Log",
+    "查看源代码（开源）": "View Source Code (open source)",
+    "还可以用“导出清单”把要清理的东西存成文件，发给懂的人或者问 AI。":
+        "You can also use “Export List” to save what's about to be cleaned and share it or ask an AI.",
+    "只移到废纸篓，从不直接删除": "Only moves to the Trash, never deletes",
+    "所有清理、卸载、重复文件处理，都是把文件移到废纸篓。想反悔就撤销，或者在废纸篓里拖回来。清空废纸篓这一步永远由你自己做":
+        "Every cleanup, uninstall and duplicate removal moves files to the Trash. Changed your mind? Undo, or drag them back from the Trash. Emptying the Trash is always your own decision",
+    "动手前一定先列清单": "Always shows the list first",
+    "每一项都写明这是什么、删了会怎样（会自动重建 / 要重新下载 / 找不回来）、我们怎么知道的。找不回来的只能逐项勾":
+        "Every item says what it is, what happens if removed (rebuilt / re-download / not recoverable) and how we know. Non-recoverable items can only be checked one by one",
+    "每一次操作都能撤销": "Every action can be undone",
+    "每次清理是一条记录，清理垃圾页面顶部列出来，可以单独撤销。原位置已经有新文件的不会覆盖":
+        "Each cleanup is a record listed at the top of the Clean Up page and can be undone individually. Nothing is overwritten if a new file has appeared in the original place",
+    "只碰你自己的主目录": "Only touches your own home folder",
+    "桌面、文稿、下载等文件夹本身不会被动；系统文件、别的用户的东西碰不到。卸载 App 只限“应用程序”文件夹":
+        "Desktop, Documents, Downloads and the like are never removed themselves; system files and other users' files are out of reach. Uninstalling is limited to the Applications folder",
+    "所有操作都有日志": "Everything is logged",
+    "每一次移动、撤销、拒绝都记在日志里，随时可以查": "Every move, undo and refusal is written to the log, which you can read any time",
+
     # —— 空间地图 ——
     "空间地图": "Space Map",
     "看看空间都被谁占了": "See what's taking up your space",

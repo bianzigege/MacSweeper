@@ -1,3 +1,4 @@
+import CoreServices
 import Foundation
 
 /// 一个可清理的具体项目（文件或文件夹）
@@ -8,8 +9,67 @@ public struct Item: Sendable {
     public let modified: Date?
     /// 显示用的名字，比如“tk-creator 的 node_modules”；没有就显示文件名
     public let label: String?
+    /// 大文件专用：是什么类型、从哪下载的、最后打开时间（其他规则不填）
+    public let detail: FileDetail?
+
+    public init(url: URL, bytes: Int64, modified: Date?, label: String?, detail: FileDetail? = nil) {
+        self.url = url
+        self.bytes = bytes
+        self.modified = modified
+        self.label = label
+        self.detail = detail
+    }
 
     public var displayName: String { label ?? url.lastPathComponent }
+}
+
+/// 一个文件“是什么”：帮人看懂大文件能不能删
+public struct FileDetail: Sendable {
+    public enum Kind: String, Sendable {
+        case video, image, audio, installer, archive, virtualMachine, document, database, other
+    }
+
+    public let kind: Kind
+    /// 从哪个网站下载的（macOS 记在文件的“来源”属性里）；nil 表示不是下载的，多半是自己做的
+    public let downloadedFrom: String?
+    /// 最后打开时间（Spotlight 记的）；nil 表示没记录
+    public let lastOpened: Date?
+
+    public static func of(_ url: URL) -> FileDetail {
+        FileDetail(kind: kind(of: url), downloadedFrom: whereFrom(url), lastOpened: lastUsed(url))
+    }
+
+    static func kind(of url: URL) -> Kind {
+        switch url.pathExtension.lowercased() {
+        case "mp4", "mov", "m4v", "mkv", "avi", "webm", "flv", "ts", "wmv": return .video
+        case "jpg", "jpeg", "png", "heic", "gif", "webp", "tiff", "psd", "raw", "dng": return .image
+        case "mp3", "wav", "m4a", "aac", "flac", "aiff", "ogg": return .audio
+        case "dmg", "pkg", "iso", "ipa", "app": return .installer
+        case "zip", "rar", "7z", "tar", "gz", "bz2", "xz": return .archive
+        case "vmdk", "vdi", "qcow2", "pvm", "utm", "vhd", "img": return .virtualMachine
+        case "pdf", "doc", "docx", "ppt", "pptx", "xls", "xlsx", "key", "pages", "numbers", "md", "txt": return .document
+        case "sqlite", "sqlite3", "db", "realm": return .database
+        default: return .other
+        }
+    }
+
+    /// macOS 给下载的文件记的来源网址（com.apple.metadata:kMDItemWhereFroms），取域名
+    static func whereFrom(_ url: URL) -> String? {
+        let name = "com.apple.metadata:kMDItemWhereFroms"
+        let size = getxattr(url.path, name, nil, 0, 0, 0)
+        guard size > 0 else { return nil }
+        var data = Data(count: size)
+        let read = data.withUnsafeMutableBytes { getxattr(url.path, name, $0.baseAddress, size, 0, 0) }
+        guard read > 0,
+              let list = try? PropertyListSerialization.propertyList(from: data, format: nil) as? [String],
+              let first = list.first(where: { !$0.isEmpty }) else { return nil }
+        return URL(string: first)?.host ?? first
+    }
+
+    static func lastUsed(_ url: URL) -> Date? {
+        guard let item = MDItemCreateWithURL(nil, url as CFURL) else { return nil }
+        return MDItemCopyAttribute(item, kMDItemLastUsedDate) as? Date
+    }
 }
 
 /// 查找阶段的结果：路径，加上可选的显示名和日期
@@ -138,7 +198,10 @@ public enum Scanner {
                 ?? (try? c.url.resourceValues(forKeys: [.contentModificationDateKey]))?.contentModificationDate
             if let days = rule.minAgeDays, let m = modified,
                m > Date().addingTimeInterval(-Double(days) * 86_400) { return nil }
-            return Item(url: c.url, bytes: size, modified: modified, label: c.label)
+            // 大文件多查三样：类型、下载来源、最后打开时间，帮人看懂能不能删
+            var detail: FileDetail?
+            if case .largeFiles = rule.target { detail = FileDetail.of(c.url) }
+            return Item(url: c.url, bytes: size, modified: modified, label: c.label, detail: detail)
         }
         .sorted { $0.bytes > $1.bytes }
         return ScanResult(rule: rule, items: items, unreadable: unreadable,

@@ -60,7 +60,20 @@ struct RuleRow: View {
         VStack(alignment: .leading, spacing: 6) {
             HStack(alignment: .top, spacing: 10) {
                 if cleanable {
-                    CheckBox(state: model.state(of: result)) { model.toggle(result) }
+                    switch model.categoryCheck(result) {
+                    case .allowed:
+                        CheckBox(state: model.state(of: result)) { model.toggle(result) }
+                    case .needsView:
+                        // 需确认：先展开看一眼，才能整类勾选
+                        Button { withAnimation(.easeOut(duration: 0.15)) { expanded = true }; model.markViewed(result.id) } label: {
+                            Image(systemName: "square.dotted").font(.system(size: 15)).foregroundStyle(.orange)
+                        }
+                        .buttonStyle(.borderless)
+                        .help(L("需确认的项目要先展开看一眼，再整类勾选"))
+                    case .perItemOnly:
+                        Image(systemName: "square.dashed").font(.system(size: 15)).foregroundStyle(.red)
+                            .help(L("这类删了找不回来，只能展开后逐项勾选"))
+                    }
                 } else if result.rule.safety == .reportOnly {
                     Image(systemName: "hand.raised").foregroundStyle(.secondary).frame(width: 15)
                 } else {
@@ -69,6 +82,7 @@ struct RuleRow: View {
                 VStack(alignment: .leading, spacing: 2) {
                     HStack(spacing: 6) {
                         Text(L(result.rule.name)).font(.body.weight(.medium))
+                        ConsequenceBadge(consequence: result.rule.consequence)
                         if result.rule.tool != nil {
                             SafetyBadge(safety: result.rule.safety)
                         } else {
@@ -105,7 +119,10 @@ struct RuleRow: View {
                     }
                 }
                 if !result.items.isEmpty {
-                    Button { withAnimation(.easeOut(duration: 0.15)) { expanded.toggle() } } label: {
+                    Button {
+                        withAnimation(.easeOut(duration: 0.15)) { expanded.toggle() }
+                        if expanded { model.markViewed(result.id) }
+                    } label: {
                         Image(systemName: "chevron.right")
                             .rotationEffect(.degrees(expanded ? 90 : 0))
                     }
@@ -114,6 +131,7 @@ struct RuleRow: View {
                 }
             }
             if expanded {
+                explanationCard
                 let shown = showAll ? result.items[...] : result.items.prefix(Self.previewCount)
                 ForEach(shown, id: \.url) { item in itemRow(item) }
                 if result.items.count > Self.previewCount {
@@ -125,13 +143,58 @@ struct RuleRow: View {
         .padding(.vertical, 4)
     }
 
+    private func fileDetailLine(_ d: FileDetail) -> String {
+        var parts: [String] = []
+        parts.append(d.downloadedFrom.map { L("从 %@ 下载的", $0) } ?? L("不是下载的，可能是你自己做的"))
+        if let opened = d.lastOpened {
+            let days = Int(Date().timeIntervalSince(opened) / 86_400)
+            parts.append(days < 1 ? L("今天打开过") : L("最后打开：%ld 天前", days))
+        } else {
+            parts.append(L("没有打开记录"))
+        }
+        return parts.joined(separator: " · ")
+    }
+
+    /// 说明卡：这是什么、删了会怎样、我们怎么知道的
+    private var explanationCard: some View {
+        VStack(alignment: .leading, spacing: 5) {
+            explanationLine("info.circle", L("这是什么"), L(result.rule.detail))
+            explanationLine("arrow.uturn.backward.circle", L("删了会怎样"), ConsequenceBadge.longText(result.rule.consequence))
+            explanationLine("magnifyingglass.circle", L("我们怎么知道的"), result.rule.evidence)
+        }
+        .font(.caption)
+        .padding(10)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(.quaternary.opacity(0.4), in: RoundedRectangle(cornerRadius: 8))
+        .padding(.leading, 26)
+    }
+
+    private func explanationLine(_ icon: String, _ title: String, _ text: String) -> some View {
+        HStack(alignment: .top, spacing: 6) {
+            Image(systemName: icon).foregroundStyle(.secondary).frame(width: 14)
+            Text(title).foregroundStyle(.secondary).frame(width: 84, alignment: .leading)
+            Text(text).fixedSize(horizontal: false, vertical: true)
+        }
+    }
+
     private func itemRow(_ item: Item) -> some View {
         HStack(spacing: 8) {
             if cleanable {
                 CheckBox(state: model.selected.contains(item.url) ? .on : .off) { model.toggle(item.url) }
             }
+            if let owner = AppOwner.guess(item.url) {
+                AppIcon(bundleID: owner.bundleID ?? owner.name, name: owner.name, size: 18)
+                    .help(L("属于 %@", owner.name))
+            }
             VStack(alignment: .leading, spacing: 1) {
-                Text(item.displayName).font(.callout).lineLimit(1)
+                HStack(spacing: 6) {
+                    Text(item.displayName).font(.callout).lineLimit(1)
+                    if let d = item.detail { FileKindTag(kind: d.kind) }
+                }
+                if let d = item.detail {
+                    // 大文件：从哪来、最后什么时候打开，帮人判断是不是自己做的、还用不用
+                    Text(fileDetailLine(d)).font(.caption2).foregroundStyle(.secondary)
+                }
                 // 有显示名的（如“tk-creator › node_modules”）给出完整路径，否则给所在文件夹
                 Text((item.label == nil ? item.url.deletingLastPathComponent() : item.url).path
                         .replacingOccurrences(of: NSHomeDirectory(), with: "~"))
@@ -146,6 +209,11 @@ struct RuleRow: View {
             }
             Text(formatBytes(item.bytes)).font(.callout).monospacedDigit()
                 .frame(minWidth: 70, alignment: .trailing)
+            if item.detail != nil {
+                Button { QuickLook.preview(item.url) } label: { Image(systemName: "eye") }
+                    .buttonStyle(.borderless)
+                    .help(L("预览（看看里面是什么）"))
+            }
             Button {
                 NSWorkspace.shared.activateFileViewerSelecting([item.url])
             } label: { Image(systemName: "magnifyingglass") }
