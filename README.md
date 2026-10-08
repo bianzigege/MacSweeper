@@ -81,7 +81,7 @@ SIGN_IDENTITY="Developer ID Application: 你的名字 (TEAMID)" NOTARY_PROFILE=m
 
 ### 自定义规则
 
-点界面右上角的规则按钮（或者直接编辑 `~/Library/Application Support/MacSweeper/自定义规则.json`），第一次会生成一份带示例的文件。每条规则的写法：
+点界面右上角的规则按钮（或者直接编辑 `~/Library/Application Support/MacSweeper/自定义规则.json`，英文系统上叫 `custom-rules.json`，两个名字都认），第一次会生成一份带示例的文件。每条规则的写法：
 
 ```json
 {

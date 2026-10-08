@@ -33,6 +33,11 @@ enum ProjectFinder {
     private static let lock = NSLock()
     private static var cached: (time: Date, projects: [Project])?
 
+    /// 清理过东西后调用：缓存作废，下次重新找（不然刚移走的 node_modules 还会在列表里）
+    static func invalidate() {
+        lock.lock(); cached = nil; lock.unlock()
+    }
+
     static func all() -> [Project] {
         lock.lock(); defer { lock.unlock() }
         if let c = cached, Date().timeIntervalSince(c.time) < 120 { return c.projects }

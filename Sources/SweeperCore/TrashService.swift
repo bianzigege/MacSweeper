@@ -72,6 +72,7 @@ public final class TrashSession {
     /// 结束：写入撤销历史，返回结果
     public func finish() -> CleanReport {
         if !report.moves.isEmpty {
+            ProjectFinder.invalidate()
             let batch = TrashBatch(kind: kind, title: title, moves: report.moves)
             Undo.save(batch)
             report.batchID = batch.id

@@ -18,8 +18,18 @@ import Foundation
 ///   "enabled": true                    可选：写 false 暂时停用
 /// }
 public enum CustomRules {
-    public static let file = FileManager.default.homeDirectoryForCurrentUser
-        .appendingPathComponent("Library/Application Support/MacSweeper/自定义规则.json")
+    static let directory = FileManager.default.homeDirectoryForCurrentUser
+        .appendingPathComponent("Library/Application Support/MacSweeper")
+    static let chineseFile = directory.appendingPathComponent("自定义规则.json")
+    static let englishFile = directory.appendingPathComponent("custom-rules.json")
+
+    /// 规则文件：两个名字都认（中文系统叫“自定义规则.json”，英文系统叫 custom-rules.json）。
+    /// 哪个存在用哪个；都不存在时，按系统语言决定新建哪个
+    public static var file: URL {
+        for f in [chineseFile, englishFile] where FileManager.default.fileExists(atPath: f.path) { return f }
+        let zh = Locale.preferredLanguages.first?.hasPrefix("zh") ?? false
+        return zh ? chineseFile : englishFile
+    }
 
     struct Entry: Decodable {
         let name: String
