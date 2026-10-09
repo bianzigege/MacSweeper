@@ -172,3 +172,50 @@ enum QuickLook {
         try? p.run()
     }
 }
+
+/// 外观：跟随系统 / 浅色 / 深色。经典的黑白两套，不另造配色
+enum Appearance: String, CaseIterable {
+    case system, light, dark
+
+    static let key = "appearance"
+
+    var title: String {
+        switch self {
+        case .system: return L("跟随系统")
+        case .light: return L("浅色")
+        case .dark: return L("深色")
+        }
+    }
+
+    /// 套用到整个 App（包括菜单栏的菜单和弹窗）
+    func apply() {
+        switch self {
+        case .system: NSApp.appearance = nil
+        case .light: NSApp.appearance = NSAppearance(named: .aqua)
+        case .dark: NSApp.appearance = NSAppearance(named: .darkAqua)
+        }
+    }
+
+    static func applySaved() {
+        (Appearance(rawValue: UserDefaults.standard.string(forKey: key) ?? "") ?? .system).apply()
+    }
+}
+
+/// 头部那个切换外观的小按钮
+struct AppearanceMenu: View {
+    @AppStorage(Appearance.key) private var appearance = Appearance.system.rawValue
+
+    var body: some View {
+        Menu {
+            Picker(L("外观"), selection: $appearance) {
+                ForEach(Appearance.allCases, id: \.rawValue) { Text($0.title).tag($0.rawValue) }
+            }
+            .pickerStyle(.inline).labelsHidden()
+        } label: {
+            Image(systemName: "circle.lefthalf.filled")
+        }
+        .menuStyle(.borderlessButton).fixedSize()
+        .help(L("外观：跟随系统 / 浅色 / 深色"))
+        .onChange(of: appearance) { _ in Appearance.applySaved() }
+    }
+}

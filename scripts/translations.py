@@ -509,6 +509,13 @@ EN = {
     "简单模式只清理缓存和日志。想看明细、卸载 App、找重复文件，用详细模式。":
         "Simple mode only cleans caches and logs. For details, uninstalling apps or finding duplicates, use Detailed mode.",
 
+    # —— 外观 ——
+    "外观": "Appearance",
+    "外观：跟随系统 / 浅色 / 深色": "Appearance: system / light / dark",
+    "跟随系统": "System",
+    "浅色": "Light",
+    "深色": "Dark",
+
     # —— 空间地图 ——
     "空间地图": "Space Map",
     "看看空间都被谁占了": "See what's taking up your space",

@@ -6,12 +6,13 @@ struct ContentView: View {
     @EnvironmentObject var model: SweepModel
     @EnvironmentObject var uninstall: UninstallModel
     @EnvironmentObject var updates: UpdateChecker
-    @State private var tab: Tab = .clean
+    /// 详细模式里当前在哪个功能页，记住上次的选择
+    @AppStorage("tab") var tab: Tab = .clean
     @State private var dropTargeted = false
     /// 简单模式 / 详细模式，记住上次的选择；第一次打开是简单模式
     @AppStorage("mode") var mode: Mode = .simple
 
-    enum Tab { case clean, uninstall, duplicates, map }
+    enum Tab: String { case clean, uninstall, duplicates, map }
     enum Mode: String { case simple, detailed }
     @State private var confirming = false
     @State var confirmingUndo = false
@@ -50,7 +51,10 @@ struct ContentView: View {
                 case .idle: emptyState
                 case .scanning: scanningView
                 case .cleaning: busy(model.busyText)
-                case .ready: resultList
+                case .ready:
+                    cleanToolbar
+                    Divider()
+                    resultList
                 }
                 if model.phase == .ready {
                     Divider()
@@ -142,6 +146,7 @@ struct ContentView: View {
         HStack(spacing: 12) {
             Text("MacSweeper").font(.title2.bold())
             Spacer()
+            AppearanceMenu()
             Button { showingSafety = true } label: { Label(L("安全说明"), systemImage: "checkmark.shield") }
                 .help(L("安全说明：这个工具怎么保证不删错东西"))
         }
@@ -170,29 +175,35 @@ struct ContentView: View {
             .padding(.leading, 8)
             Button(L("简单模式")) { mode = .simple }.controlSize(.small).padding(.leading, 6)
             Spacer()
-            if tab == .clean && model.phase == .ready {
-                HStack(spacing: 6) {
-                    Image(systemName: "magnifyingglass").foregroundStyle(.secondary)
-                    TextField("搜索，如 微信", text: $model.query)
-                        .textFieldStyle(.plain)
-                        .frame(width: 170)
-                    if !model.query.isEmpty {
-                        Button { model.query = "" } label: { Image(systemName: "xmark.circle.fill") }
-                            .buttonStyle(.borderless).foregroundStyle(.secondary)
-                    }
-                }
-                .padding(.horizontal, 8).padding(.vertical, 5)
-                .background(.quaternary.opacity(0.6), in: RoundedRectangle(cornerRadius: 7))
-                Button { showingSafety = true } label: { Label(L("安全说明"), systemImage: "checkmark.shield") }
-                    .labelStyle(.iconOnly)
-                    .help(L("安全说明：这个工具怎么保证不删错东西"))
-                Button { model.openCustomRules() } label: { Label("自定义规则", systemImage: "slider.horizontal.3") }
-                    .labelStyle(.iconOnly)
-                    .help("自定义规则：打开规则文件，改完保存后点“重新扫描”生效")
-                Button { model.scan() } label: { Label("重新扫描", systemImage: "arrow.clockwise") }
-            }
+            AppearanceMenu()
+            Button { showingSafety = true } label: { Label(L("安全说明"), systemImage: "checkmark.shield") }
+                .labelStyle(.iconOnly)
+                .help(L("安全说明：这个工具怎么保证不删错东西"))
         }
         .padding(.horizontal, 20).padding(.vertical, 14)
+    }
+
+    /// “清理垃圾”页自己的工具条：搜索、自定义规则、重新扫描（不挤在顶部）
+    private var cleanToolbar: some View {
+        HStack(spacing: 10) {
+            HStack(spacing: 6) {
+                Image(systemName: "magnifyingglass").foregroundStyle(.secondary)
+                TextField("搜索，如 微信", text: $model.query)
+                    .textFieldStyle(.plain)
+                    .frame(width: 180)
+                if !model.query.isEmpty {
+                    Button { model.query = "" } label: { Image(systemName: "xmark.circle.fill") }
+                        .buttonStyle(.borderless).foregroundStyle(.secondary)
+                }
+            }
+            .padding(.horizontal, 8).padding(.vertical, 5)
+            .background(.quaternary.opacity(0.6), in: RoundedRectangle(cornerRadius: 7))
+            Spacer()
+            Button { model.openCustomRules() } label: { Label("自定义规则", systemImage: "slider.horizontal.3") }
+                .help("自定义规则：打开规则文件，改完保存后点“重新扫描”生效")
+            Button { model.scan() } label: { Label("重新扫描", systemImage: "arrow.clockwise") }
+        }
+        .padding(.horizontal, 20).padding(.vertical, 10)
     }
 
     // MARK: 状态页

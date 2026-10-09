@@ -64,6 +64,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCent
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         Self.shared = self
+        Appearance.applySaved()
         // 访达右键菜单“用 MacSweeper 卸载”
         NSApp.servicesProvider = services
         NSUpdateDynamicServices()
