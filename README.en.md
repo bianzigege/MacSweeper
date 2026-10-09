@@ -8,6 +8,8 @@
 
 <p align="center"><a href="README.md">中文</a> · English</p>
 
+<p align="center"><img src="docs/宣传配图/1-简单模式.png" width="720" alt="Simple mode: one number, one button"></p>
+
 ## In three sentences
 
 1. It opens in **Simple mode**: one number (how much cache can be safely cleaned) and one button (Safe Clean). It only touches caches and logs that are rebuilt automatically, skips apps that are running, and never touches chats, files or sign-ins.
