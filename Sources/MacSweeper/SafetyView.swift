@@ -46,10 +46,10 @@ struct SafetyView: View {
             HStack {
                 Toggle(L("每天检查一次有没有新版本"), isOn: $checkForUpdates)
                 Spacer()
-                Button(L("反馈问题")) { Feedback.open() }
-                    .help(L("打开 GitHub 的反馈页面，会自动带上版本号，不带任何文件路径"))
+                FeedbackMenu()
             }
-            Text(L("MacSweeper %@", UpdateChecker.current)).font(.caption).foregroundStyle(.tertiary)
+            Text(L("MacSweeper %@ · 反馈邮箱：%@", UpdateChecker.current, Feedback.email))
+                .font(.caption).foregroundStyle(.tertiary).textSelection(.enabled)
         }
         .padding(24)
         .frame(width: 560)

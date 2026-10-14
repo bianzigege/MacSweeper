@@ -136,8 +136,7 @@ struct SimpleView: View {
             Text(L("简单模式只清理缓存和日志。想看明细、卸载 App、找重复文件，用详细模式。"))
                 .font(.caption).foregroundStyle(.secondary)
             Spacer()
-            Button(L("反馈问题")) { Feedback.open() }
-                .help(L("打开 GitHub 的反馈页面，会自动带上版本号，不带任何文件路径"))
+            FeedbackMenu()
             Button(L("详细模式")) { mode = .detailed }
         }
         .padding(.horizontal, 20).padding(.vertical, 12)

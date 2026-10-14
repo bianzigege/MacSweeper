@@ -49,7 +49,11 @@ Every release lists the DMG's SHA-256 checksum. To verify a download, run `shasu
 
 ## Problems?
 
-Click **Report a Problem** in the app (bottom right of Simple mode, or on the Safety page). It opens the GitHub feedback page with the app and macOS versions filled in, and no file paths. You can also open an [issue](../../issues) directly.
+Click **Report a Problem** in the app (bottom right of Simple mode, or on the Safety page) and choose:
+- **Email the Author**: no GitHub account needed; opens Mail with the subject and versions filled in
+- **Report on GitHub**: needs a GitHub account; you can also open an [issue](../../issues) directly
+
+Or write to **[bianzigege2026@gmail.com](mailto:bianzigege2026@gmail.com)**. Feedback only includes the app and macOS versions, never file paths.
 
 ## Safety
 
@@ -68,7 +72,7 @@ Click **Report a Problem** in the app (bottom right of Simple mode, or on the Sa
 
 - The only network access is a daily check of the latest version number on GitHub (no automatic downloads). Turn it off on the Safety page and MacSweeper never goes online
 - No usage data is collected and nothing is uploaded; all scanning happens on your Mac
-- “Report a Problem” only includes the app and macOS versions, and you submit it yourself on GitHub
+- “Report a Problem” only includes the app and macOS versions, and you send it yourself (email or GitHub)
 
 ## Build from source
 

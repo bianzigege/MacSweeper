@@ -232,23 +232,60 @@ struct PermissionHint: View {
     }
 }
 
-/// “反馈问题”：打开 GitHub 的反馈页面，自动带上版本号和系统版本。不带任何文件路径
+/// “反馈问题”：发邮件，或者在 GitHub 上提。都会自动带上版本号和系统版本，不带任何文件路径
 @MainActor
 enum Feedback {
     static let repo = "https://github.com/bianzigege/MacSweeper"
+    /// 作者公开的反馈邮箱，没有 GitHub 账号的人用它
+    static let email = "bianzigege2026@gmail.com"
 
-    static func open() {
+    /// 反馈模板：遇到什么问题、怎么出现的、版本号。GitHub 上用加粗标题，邮件里用普通文字
+    private static func template(markdown: Bool) -> String {
         let os = ProcessInfo.processInfo.operatingSystemVersion
         let system = "\(os.majorVersion).\(os.minorVersion).\(os.patchVersion)"
-        let body = [
-            L("**遇到了什么问题？**"), "", "",
-            L("**怎么出现的？**（在哪个页面、点了什么）"), "", "",
+        return [
+            markdown ? L("**遇到了什么问题？**") : L("遇到了什么问题？"), "", "",
+            markdown ? L("**怎么出现的？**（在哪个页面、点了什么）") : L("怎么出现的？（在哪个页面、点了什么）"), "", "",
             "---",
             L("MacSweeper %@ · macOS %@", UpdateChecker.current, system),
             L("请不要贴出带你名字的文件路径或截图。"),
         ].joined(separator: "\n")
-        var c = URLComponents(string: repo + "/issues/new")!
-        c.queryItems = [URLQueryItem(name: "body", value: body)]
+    }
+
+    /// 用“邮件”App 写一封给作者的信，主题和模板已经填好
+    static func openMail() {
+        var c = URLComponents()
+        c.scheme = "mailto"
+        c.path = email
+        c.queryItems = [URLQueryItem(name: "subject", value: L("MacSweeper 反馈")),
+                        URLQueryItem(name: "body", value: template(markdown: false))]
         if let url = c.url { NSWorkspace.shared.open(url) }
+    }
+
+    /// 打开 GitHub 的反馈页面（需要 GitHub 账号）
+    static func openGitHub() {
+        var c = URLComponents(string: repo + "/issues/new")!
+        c.queryItems = [URLQueryItem(name: "body", value: template(markdown: true))]
+        if let url = c.url { NSWorkspace.shared.open(url) }
+    }
+
+    /// 没设置“邮件”App 的人，复制地址去自己常用的邮箱发
+    static func copyEmail() {
+        NSPasteboard.general.clearContents()
+        NSPasteboard.general.setString(email, forType: .string)
+    }
+}
+
+/// “反馈问题”按钮：点开选发邮件、在 GitHub 上提，或者复制邮箱地址
+struct FeedbackMenu: View {
+    var body: some View {
+        Menu(L("反馈问题")) {
+            Button(L("发邮件给作者")) { Feedback.openMail() }
+            Button(L("在 GitHub 上提（需要账号）")) { Feedback.openGitHub() }
+            Divider()
+            Button(L("复制邮箱地址：%@", Feedback.email)) { Feedback.copyEmail() }
+        }
+        .fixedSize()
+        .help(L("会自动带上版本号和系统版本，不带任何文件路径"))
     }
 }
