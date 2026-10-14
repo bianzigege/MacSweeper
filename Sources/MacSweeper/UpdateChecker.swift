@@ -15,9 +15,12 @@ final class UpdateChecker: ObservableObject {
 
     static let releaseAPI = URL(string: "https://api.github.com/repos/bianzigege/MacSweeper/releases/latest")!
     static let lastCheckKey = "lastUpdateCheck"
+    /// 安全说明页里可以关掉；关掉后完全不联网
+    static let enabledKey = "checkForUpdates"
     static let current = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "0"
 
     func checkIfDue() {
+        guard UserDefaults.standard.object(forKey: Self.enabledKey) as? Bool ?? true else { return }
         let last = UserDefaults.standard.object(forKey: Self.lastCheckKey) as? Date ?? .distantPast
         guard Date().timeIntervalSince(last) > 86_400 else { return }
         Task { await check() }

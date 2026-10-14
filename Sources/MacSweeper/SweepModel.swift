@@ -5,6 +5,8 @@ import SweeperCore
 @MainActor
 final class SweepModel: ObservableObject {
     enum Phase { case idle, scanning, ready, cleaning }
+    /// 扫描范围：简单模式只扫缓存和日志（不读桌面、文稿、下载，不会弹权限窗）；详细模式扫全部
+    enum Scope { case simple, full }
 
     @Published var phase: Phase = .idle
     @Published var results: [ScanResult] = []
@@ -39,6 +41,13 @@ final class SweepModel: ObservableObject {
     private var lastRunning: RunningSnapshot?
     /// 自定义规则文件里有问题的地方
     @Published var customProblems: [String] = []
+    /// 最近一次扫描的范围。简单模式扫出来的结果不全，切到详细模式要重新扫
+    @Published private(set) var scannedScope: Scope?
+
+    /// 没指定范围时按当前模式：简单模式 → 只扫缓存日志，详细模式 → 全部
+    private var currentScope: Scope {
+        UserDefaults.standard.string(forKey: "mode") == "detailed" ? .full : .simple
+    }
 
     init() { refreshFreeSpace() }
 
@@ -164,21 +173,44 @@ final class SweepModel: ObservableObject {
     /// 勾选里删了找不回来的项目
     var selectedLost: [ScanResult] { selectedResults.filter { $0.rule.consequence == .lost } }
     var selectedLostCount: Int { selectedLost.reduce(0) { $0 + $1.items.count } }
+    /// 勾选里在 iCloud 上的文件：移到废纸篓后所有设备都会删
+    var selectedICloudCount: Int { selectedResults.flatMap(\.items).filter { $0.detail?.inICloud == true }.count }
 
     static let scanCountKey = "scanCount"
 
     // MARK: 简单模式
 
-    /// 简单模式能清的：可放心清理、删了会自动重建、相关 App 没在运行
+    /// 简单模式能清的：可放心清理、删了会自动重建、不读个人文件夹、相关 App 没在运行
     var simpleResults: [ScanResult] {
-        results.filter { $0.rule.safety == .safe && $0.rule.consequence == .rebuilt && isCleanable($0) }
+        results.filter { $0.rule.runsInSimpleMode && isCleanable($0) }
     }
     var simpleBytes: Int64 { simpleResults.reduce(0) { $0 + $1.bytes } }
-    /// 同样是缓存，但 App 正在运行，这次先不碰
-    var simpleSkippedBytes: Int64 {
-        results.filter { $0.rule.safety == .safe && $0.rule.consequence == .rebuilt && $0.blocker != nil }
-            .reduce(0) { $0 + $1.bytes }
+
+    /// 简单模式里，因为某个 App 开着而先没动的缓存
+    struct BlockedApp: Identifiable {
+        let name: String
+        let bundleURL: URL?
+        let results: [ScanResult]
+        /// 能不能帮你退出（命令行程序不帮你结束）
+        let canQuit: Bool
+        var bytes: Int64 { results.reduce(0) { $0 + $1.bytes } }
+        var id: String { name }
     }
+
+    /// 按 App 分组，占得多的在前，比如“微信 22GB”
+    var simpleBlockedApps: [BlockedApp] {
+        var byApp: [String: [ScanResult]] = [:]
+        for r in results where r.rule.runsInSimpleMode && r.rule.safety != .reportOnly && r.bytes > 0 {
+            if let name = r.blocker { byApp[name, default: []].append(r) }
+        }
+        return byApp.map { name, rs in
+            BlockedApp(name: name,
+                       bundleURL: lastRunning?.apps(forBundleIDs: rs.flatMap(\.rule.quitApps)).first?.bundleURL,
+                       results: rs, canQuit: rs.allSatisfy { canQuitApps(for: $0) })
+        }
+        .sorted { $0.bytes > $1.bytes }
+    }
+    var simpleSkippedBytes: Int64 { simpleBlockedApps.reduce(0) { $0 + $1.bytes } }
 
     /// 简单模式的一键清理：只勾“会自动重建”的，然后走和详细模式一样的清理流程
     func cleanSimple() {
@@ -221,16 +253,17 @@ final class SweepModel: ObservableObject {
     var selectedCount: Int { selectedResults.reduce(0) { $0 + $1.items.count } }
     var needsFullDiskAccess: Bool { results.contains { !$0.unreadable.isEmpty } }
 
-    func scan(keepReport: Bool = false) {
+    func scan(keepReport: Bool = false, scope: Scope? = nil) {
+        let scope = scope ?? currentScope
         phase = .scanning
         progress = (0, 0, "")
-        reportsPending = true
+        reportsPending = scope == .full
         if !keepReport { lastReport = nil; notice = nil; lastUndo = nil }
         scanGeneration += 1
         let generation = scanGeneration
         let custom = CustomRules.load()
         customProblems = custom.problems
-        let all = RuleBook.builtIn + custom.rules
+        let all = (RuleBook.builtIn + custom.rules).filter { scope == .full || $0.runsInSimpleMode }
         Task {
             let session = ScanSession()
             lastRunning = session.running
@@ -244,14 +277,17 @@ final class SweepModel: ObservableObject {
             }.value
             guard generation == scanGeneration else { return }
             show(first)
+            scannedScope = scope
             refreshTrash()
-            // 第一次用什么都不勾，让人先看一眼分类；之后默认勾“可放心清理”（删了会自动重建的）、而且相关 App 没在运行的
+            // 详细模式第一次扫描什么都不勾，让人先看一眼分类；之后默认勾“可放心清理”（删了会自动重建的）、而且相关 App 没在运行的。
+            // 简单模式的扫描不算次数（它自己决定清什么）
             let scans = UserDefaults.standard.integer(forKey: Self.scanCountKey)
-            UserDefaults.standard.set(scans + 1, forKey: Self.scanCountKey)
+            if scope == .full { UserDefaults.standard.set(scans + 1, forKey: Self.scanCountKey) }
             selected = scans == 0 ? [] : Set(results.filter { $0.rule.safety == .safe && $0.rule.consequence == .rebuilt && isCleanable($0) }
                 .flatMap { $0.items.map(\.url) })
             refreshFreeSpace()
             phase = .ready
+            guard scope == .full else { return }
 
             // 第二轮：“只报告”的大类（如微信数据全部），在后台算完再补上
             let second = await Task.detached(priority: .utility) {
@@ -302,7 +338,13 @@ final class SweepModel: ObservableObject {
 
     /// 像按 ⌘Q 一样让 App 自己退出；thenClean 为 true 时接着把这一条全部清理，并重新打开 App
     func quitApps(for r: ScanResult, thenClean: Bool) {
-        let apps = quittableApps(for: r)
+        quitApps(for: [r], thenClean: thenClean)
+    }
+
+    /// 同上，一次处理同一个 App 挡住的几条（简单模式里“微信”一行可能包括内置浏览器缓存和临时文件）
+    func quitApps(for rs: [ScanResult], thenClean: Bool) {
+        var seen = Set<pid_t>()
+        let apps = rs.flatMap { quittableApps(for: $0) }.filter { seen.insert($0.processIdentifier).inserted }
         guard !apps.isEmpty else { return }
         let names = apps.compactMap(\.localizedName).joined(separator: L("、"))
         let urls = apps.compactMap(\.bundleURL)
@@ -317,11 +359,11 @@ final class SweepModel: ObservableObject {
                 return
             }
             if thenClean {
-                busyText = L("正在清理 %@…", L(r.rule.name))
-                let rule = r.rule
-                // App 退出后重新扫一遍这一条，拿到最新的文件列表再清理
+                busyText = rs.count == 1 ? L("正在清理 %@…", L(rs[0].rule.name)) : L("正在清理 %@ 的缓存…", names)
+                let rules = rs.map(\.rule)
+                // App 退出后重新扫一遍这几条，拿到最新的文件列表再清理
                 lastReport = await Task.detached(priority: .userInitiated) {
-                    Cleaner.moveToTrash([Scanner.scan(rule: rule)])
+                    Cleaner.moveToTrash(rules.map { Scanner.scan(rule: $0) })
                 }.value
                 reopen(urls)
             } else {

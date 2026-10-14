@@ -509,6 +509,33 @@ EN = {
     "简单模式只清理缓存和日志。想看明细、卸载 App、找重复文件，用详细模式。":
         "Simple mode only cleans caches and logs. For details, uninstalling apps or finding duplicates, use Detailed mode.",
 
+    # —— 1.0：分享前的加固 ——
+    "%@ 会先退出，清理完自动重新打开。只清缓存，聊天记录、文件和登录状态都不受影响。如果有没发出去的消息、没保存的内容，请先处理好。":
+        "%@ will quit first and reopen after cleaning. Only caches are removed; chats, files and sign-ins are not affected. If you have unsent messages or unsaved work, take care of them first.",
+    "**怎么出现的？**（在哪个页面、点了什么）": "**How did it happen?** (which page, what you clicked)",
+    "**遇到了什么问题？**": "**What went wrong?**",
+    "macOS 可能会问能不能访问桌面、文稿、下载。点“允许”就行；不允许也可以，那几个文件夹会跳过。":
+        "macOS may ask for access to Desktop, Documents and Downloads. Click “Allow”; if you don't, those folders are skipped.",
+    "☁️ 其中 %ld 个文件在 iCloud 里，移到废纸篓后，你所有设备上都会消失。":
+        "☁️ %ld of these files are in iCloud. Moving them to the Trash removes them from all your devices.",
+    "关掉它之后再检查": "Quit it, then check again",
+    "反馈问题": "Report a Problem",
+    "只检查缓存和日志，不看你的桌面、文稿和下载。macOS 可能会问能不能访问其他 App 的数据，这是为了找微信、飞书这些 App 里的缓存。点“允许”就行；不允许也没关系，那部分会跳过。":
+        "Only caches and logs are checked; your Desktop, Documents and Downloads are not looked at. macOS may ask whether MacSweeper can access data from other apps. That's to find caches inside apps like WeChat and Feishu. Click “Allow”; if you don't, that part is simply skipped.",
+    "在 iCloud 里：移到废纸篓后，你所有设备上都会消失": "In iCloud: moving it to the Trash removes it from all your devices",
+    "打开 GitHub 的反馈页面，会自动带上版本号，不带任何文件路径": "Opens the GitHub feedback page with the version filled in. No file paths are included",
+    "正在清理 %@ 的缓存…": "Cleaning %@'s caches…",
+    "每天检查一次有没有新版本": "Check for a new version once a day",
+    "详细模式要找大文件和安装包，macOS 可能会问能不能访问桌面、文稿、下载。点“允许”就行；不允许也可以，那几项会跳过。":
+        "To find large files and installers, macOS may ask for access to Desktop, Documents and Downloads. Click “Allow”; if you don't, those items are skipped.",
+    "请不要贴出带你名字的文件路径或截图。": "Please don't paste file paths or screenshots that show your name.",
+    "这些 App 开着，它们的缓存（共 %@）先没动：": "These apps are open, so their caches (%@ in total) were left alone:",
+    "退出%@，清理 %@ 的缓存？": "Quit %@ and clean %@ of caches?",
+    "退出并清理": "Quit and Clean",
+    "不收集、不上传任何东西": "Nothing is collected or uploaded",
+    "除了每天去 GitHub 查一次有没有新版本，不联网。你的文件、清单、使用情况都不会离开这台电脑。检查更新可以在下面关掉":
+        "Apart from checking GitHub once a day for a new version, MacSweeper never goes online. Your files, lists and usage never leave this Mac. You can turn off update checks below",
+
     # —— 外观 ——
     "外观": "Appearance",
     "外观：跟随系统 / 浅色 / 深色": "Appearance: system / light / dark",

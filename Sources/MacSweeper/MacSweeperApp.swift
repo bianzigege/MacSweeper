@@ -15,6 +15,7 @@ struct MacSweeperApp: App {
     @AppStorage(MenuBarModel.showKey) private var showMenuBar = true
 
     init() {
+        LegacySettings.migrate()
         // 直接用 swift run 启动时也能正常显示窗口和程序坞图标
         NSApplication.shared.setActivationPolicy(.regular)
         NSApplication.shared.activate(ignoringOtherApps: true)
@@ -156,6 +157,22 @@ final class ServiceProvider: NSObject {
     @objc func uninstallApp(_ pboard: NSPasteboard, userData: String?, error: AutoreleasingUnsafeMutablePointer<NSString?>) {
         let urls = (pboard.readObjects(forClasses: [NSURL.self], options: [.urlReadingFileURLsOnly: true]) as? [URL]) ?? []
         DispatchQueue.main.async { AppDelegate.request(urls.filter { $0.pathExtension == "app" }) }
+    }
+}
+
+/// 1.0 起 App 的身份号从 local.macsweeper 改成 io.github.bianzigege.macsweeper。
+/// 设置（简单/详细模式、外观、菜单栏等）记在身份号名下，第一次打开新版时从旧的那份搬过来，只搬一次、不覆盖。
+/// 撤销历史、操作日志、自定义规则存在文件夹里，和身份号无关，不用搬
+enum LegacySettings {
+    static let oldID = "local.macsweeper"
+    static let doneKey = "migratedLegacySettings"
+
+    static func migrate() {
+        let d = UserDefaults.standard
+        guard Bundle.main.bundleIdentifier != oldID, !d.bool(forKey: doneKey) else { return }
+        d.set(true, forKey: doneKey)
+        guard let old = d.persistentDomain(forName: oldID) else { return }
+        for (key, value) in old where d.object(forKey: key) == nil { d.set(value, forKey: key) }
     }
 }
 

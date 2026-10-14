@@ -219,3 +219,36 @@ struct AppearanceMenu: View {
         .onChange(of: appearance) { _ in Appearance.applySaved() }
     }
 }
+
+/// 开始扫描前的一句提醒：macOS 接下来可能会弹窗问权限，先说清楚为什么、不允许会怎样
+struct PermissionHint: View {
+    let text: String
+    var body: some View {
+        Label(text, systemImage: "hand.raised")
+            .font(.caption).foregroundStyle(.secondary)
+            .multilineTextAlignment(.leading)
+            .fixedSize(horizontal: false, vertical: true)
+            .frame(maxWidth: 440)
+    }
+}
+
+/// “反馈问题”：打开 GitHub 的反馈页面，自动带上版本号和系统版本。不带任何文件路径
+@MainActor
+enum Feedback {
+    static let repo = "https://github.com/bianzigege/MacSweeper"
+
+    static func open() {
+        let os = ProcessInfo.processInfo.operatingSystemVersion
+        let system = "\(os.majorVersion).\(os.minorVersion).\(os.patchVersion)"
+        let body = [
+            L("**遇到了什么问题？**"), "", "",
+            L("**怎么出现的？**（在哪个页面、点了什么）"), "", "",
+            "---",
+            L("MacSweeper %@ · macOS %@", UpdateChecker.current, system),
+            L("请不要贴出带你名字的文件路径或截图。"),
+        ].joined(separator: "\n")
+        var c = URLComponents(string: repo + "/issues/new")!
+        c.queryItems = [URLQueryItem(name: "body", value: body)]
+        if let url = c.url { NSWorkspace.shared.open(url) }
+    }
+}

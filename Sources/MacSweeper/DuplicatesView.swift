@@ -47,6 +47,7 @@ struct DuplicatesView: View {
             Text(L("找出内容完全一样的文件")).font(.title3)
             Text(L("查找桌面、文稿、下载、影片等文件夹里 1MB 以上的文件，逐字节比对内容。项目文件夹、App 的缓存和媒体库不会碰。"))
                 .font(.callout).foregroundStyle(.secondary).multilineTextAlignment(.center).frame(maxWidth: 460)
+            PermissionHint(text: L("macOS 可能会问能不能访问桌面、文稿、下载。点“允许”就行；不允许也可以，那几个文件夹会跳过。"))
             Button { model.scan() } label: { Text(L("开始查找")).frame(minWidth: 120) }
                 .controlSize(.large).buttonStyle(.borderedProminent)
         }

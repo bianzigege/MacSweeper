@@ -5,6 +5,7 @@ import SweeperCore
 /// “安全说明”页：五句话说清楚这个工具怎么保证安全，以及怎么自己验证
 struct SafetyView: View {
     @Environment(\.dismiss) private var dismiss
+    @AppStorage(UpdateChecker.enabledKey) private var checkForUpdates = true
 
     private let promises: [(String, String, String)] = [
         ("trash", "只移到废纸篓，从不直接删除", "所有清理、卸载、重复文件处理，都是把文件移到废纸篓。想反悔就撤销，或者在废纸篓里拖回来。清空废纸篓这一步永远由你自己做"),
@@ -12,6 +13,7 @@ struct SafetyView: View {
         ("arrow.uturn.backward.circle", "每一次操作都能撤销", "每次清理是一条记录，清理垃圾页面顶部列出来，可以单独撤销。原位置已经有新文件的不会覆盖"),
         ("house", "只碰你自己的主目录", "桌面、文稿、下载等文件夹本身不会被动；系统文件、别的用户的东西碰不到。卸载 App 只限“应用程序”文件夹"),
         ("doc.text", "所有操作都有日志", "每一次移动、撤销、拒绝都记在日志里，随时可以查"),
+        ("wifi.slash", "不收集、不上传任何东西", "除了每天去 GitHub 查一次有没有新版本，不联网。你的文件、清单、使用情况都不会离开这台电脑。检查更新可以在下面关掉"),
     ]
 
     var body: some View {
@@ -35,11 +37,19 @@ struct SafetyView: View {
             Text(L("不放心的话，可以自己验证：")).font(.headline)
             HStack(spacing: 10) {
                 Button(L("查看操作日志")) { NSWorkspace.shared.activateFileViewerSelecting([OperationLog.url]) }
-                Button(L("查看源代码（开源）")) { NSWorkspace.shared.open(URL(string: "https://github.com/bianzigege/MacSweeper")!) }
+                Button(L("查看源代码（开源）")) { NSWorkspace.shared.open(URL(string: Feedback.repo)!) }
                 Button(L("打开废纸篓")) { NSWorkspace.shared.open(FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent(".Trash")) }
             }
             Text(L("还可以用“导出清单”把要清理的东西存成文件，发给懂的人或者问 AI。"))
                 .font(.callout).foregroundStyle(.secondary)
+            Divider()
+            HStack {
+                Toggle(L("每天检查一次有没有新版本"), isOn: $checkForUpdates)
+                Spacer()
+                Button(L("反馈问题")) { Feedback.open() }
+                    .help(L("打开 GitHub 的反馈页面，会自动带上版本号，不带任何文件路径"))
+            }
+            Text(L("MacSweeper %@", UpdateChecker.current)).font(.caption).foregroundStyle(.tertiary)
         }
         .padding(24)
         .frame(width: 560)

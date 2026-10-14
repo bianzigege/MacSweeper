@@ -7,7 +7,7 @@
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
-VERSION="0.16.0"
+VERSION="1.0.0"
 APP="build/MacSweeper.app"
 
 for arch in arm64 x86_64; do
@@ -32,7 +32,7 @@ cat > "$APP/Contents/Info.plist" <<EOF
     <key>CFBundleName</key><string>MacSweeper</string>
     <key>CFBundleDisplayName</key><string>MacSweeper</string>
     <key>CFBundleExecutable</key><string>MacSweeper</string>
-    <key>CFBundleIdentifier</key><string>local.macsweeper</string>
+    <key>CFBundleIdentifier</key><string>io.github.bianzigege.macsweeper</string>
     <key>CFBundlePackageType</key><string>APPL</string>
     <key>CFBundleShortVersionString</key><string>${VERSION}</string>
     <key>CFBundleVersion</key><string>${VERSION}</string>

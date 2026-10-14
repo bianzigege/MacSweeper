@@ -556,6 +556,48 @@ group("英文翻译：每条内置规则的名称、说明、分类、工具名�
     check(missing.isEmpty, "缺少翻译（加到 scripts/translations.py 里）：\(missing)")
 }
 
+// MARK: - 分享前的安全加固（1.0）
+
+group("苹果系统缓存：不带 com.apple 前缀的也不碰") {
+    for name in ["CloudKit", "GeoServices", "FamilyCircle", "com.apple.Safari", "ThirdParty", "com.example.app"] {
+        makeFile("apple-caches/\(name)/data", bytes: 100)
+    }
+    // 测试文件在临时目录（主目录以外），用“只报告”才能列出来；排除名单的逻辑和清理时一样
+    let r = Rule(id: "t-apple", name: "t", category: "测试", safety: .reportOnly, detail: "",
+                 target: .contents(of: sandbox.path + "/apple-caches", excludingPrefixes: RuleBook.appleCacheNames))
+    let names = Set(Scanner.scan(rule: r).items.map(\.url.lastPathComponent))
+    check(names == ["ThirdParty", "com.example.app"], "只列出第三方 App 的缓存（实际：\(names.sorted())）")
+    for id in ["user-caches", "sandbox-caches"] {
+        guard let rule = RuleBook.builtIn.first(where: { $0.id == id }), case let .contents(_, excluded) = rule.target else {
+            check(false, "找不到规则 \(id)"); continue
+        }
+        check(["CloudKit", "GeoServices", "FamilyCircle", "com.apple."].allSatisfy(excluded.contains),
+              "\(id) 跳过 CloudKit、GeoServices、FamilyCircle 和 com.apple.*")
+    }
+}
+
+group("简单模式：只扫缓存和日志，不读桌面、文稿、下载") {
+    let simple = RuleBook.builtIn.filter(\.runsInSimpleMode)
+    check(simple.contains { $0.id == "user-caches" }, "应用缓存在简单模式里")
+    check(simple.allSatisfy { $0.safety == .safe && $0.consequence == .rebuilt }, "只有可放心清理、会自动重建的")
+    check(simple.allSatisfy { !$0.target.readsPersonalFolders }, "简单模式的规则都不读桌面、文稿、下载")
+    for id in ["large-files", "installers", "ai-project-deps", "stale-projects"] {
+        guard let rule = RuleBook.builtIn.first(where: { $0.id == id }) else { check(false, "找不到规则 \(id)"); continue }
+        check(rule.target.readsPersonalFolders, "\(id) 会读个人文件夹")
+        check(!rule.runsInSimpleMode, "\(id) 不在简单模式里")
+    }
+    check(Target.paths(["~/Desktop/x"]).readsPersonalFolders, "~/Desktop 下的路径算个人文件夹")
+    check(!Target.paths(["~/Desktop2/x"]).readsPersonalFolders, "名字只是以 Desktop 开头的文件夹不算")
+    check(Target.files(in: home + "/Downloads", extensions: ["dmg"]).readsPersonalFolders, "写成完整路径的下载文件夹也认得")
+    check(!Target.contents(of: "~/Library/Caches").readsPersonalFolders, "~/Library/Caches 不算个人文件夹")
+}
+
+group("大文件：iCloud 标记") {
+    let f = makeFile("icloud/big.mov", bytes: 100)
+    check(!FileDetail.of(f).inICloud, "临时目录里的文件不算在 iCloud 里")
+    check(Version.isNewer("1.0.0", than: "0.16.0"), "1.0.0 比 0.16.0 新，老用户能收到更新提醒")
+}
+
 // MARK: - 结果
 
 print("")

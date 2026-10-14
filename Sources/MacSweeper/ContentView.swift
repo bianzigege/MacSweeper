@@ -51,12 +51,15 @@ struct ContentView: View {
                 case .idle: emptyState
                 case .scanning: scanningView
                 case .cleaning: busy(model.busyText)
+                case .ready where model.scannedScope != .full:
+                    // 简单模式只扫了缓存和日志，详细模式要重新扫全部
+                    emptyState
                 case .ready:
                     cleanToolbar
                     Divider()
                     resultList
                 }
-                if model.phase == .ready {
+                if model.phase == .ready && model.scannedScope == .full {
                     Divider()
                     footer
                 }
@@ -134,6 +137,9 @@ struct ContentView: View {
         if model.selectedLostCount > 0 {
             text += "\n\n" + L("⚠️ 其中 %ld 项删了找不回来（清空废纸篓后就没了）：%@", model.selectedLostCount,
                                  model.selectedLost.map { L($0.rule.name) }.joined(separator: L("、")))
+        }
+        if model.selectedICloudCount > 0 {
+            text += "\n\n" + L("☁️ 其中 %ld 个文件在 iCloud 里，移到废纸篓后，你所有设备上都会消失。", model.selectedICloudCount)
         }
         text += "\n\n" + L("文件只会进入废纸篓，可以撤销；确认电脑正常后再清空废纸篓。")
         return text
@@ -215,7 +221,8 @@ struct ContentView: View {
             Text("扫描一下，看看哪些空间可以腾出来").font(.title3)
             Text("只扫描、不删除。清理前会列出清单让你确认，文件只会移到废纸篓。")
                 .font(.callout).foregroundStyle(.secondary)
-            Button { model.scan() } label: {
+            PermissionHint(text: L("详细模式要找大文件和安装包，macOS 可能会问能不能访问桌面、文稿、下载。点“允许”就行；不允许也可以，那几项会跳过。"))
+            Button { model.scan(scope: .full) } label: {
                 Text("开始扫描").frame(minWidth: 120)
             }
             .controlSize(.large)

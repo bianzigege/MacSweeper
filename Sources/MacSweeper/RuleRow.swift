@@ -194,6 +194,10 @@ struct RuleRow: View {
                 if let d = item.detail {
                     // 大文件：从哪来、最后什么时候打开，帮人判断是不是自己做的、还用不用
                     Text(fileDetailLine(d)).font(.caption2).foregroundStyle(.secondary)
+                    if d.inICloud {
+                        Label(L("在 iCloud 里：移到废纸篓后，你所有设备上都会消失"), systemImage: "icloud")
+                            .font(.caption2).foregroundStyle(.orange)
+                    }
                 }
                 // 有显示名的（如“tk-creator › node_modules”）给出完整路径，否则给所在文件夹
                 Text((item.label == nil ? item.url.deletingLastPathComponent() : item.url).path

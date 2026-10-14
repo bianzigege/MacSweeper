@@ -50,6 +50,31 @@ public enum Target: Sendable {
     case brokenLinks([String])
 }
 
+extension Target {
+    /// 会不会去读桌面、文稿、下载这几个文件夹。读的话 macOS 会弹窗问权限，所以简单模式不扫这些规则
+    public var readsPersonalFolders: Bool {
+        switch self {
+        case .largeFiles, .projectDependencies, .staleProjects:
+            return true   // 在整个主目录里找，包括桌面、文稿、下载
+        case let .contents(of: path, _): return Self.isPersonal(path)
+        case let .paths(paths): return paths.contains(where: Self.isPersonal)
+        case let .files(in: dir, _): return Self.isPersonal(dir)
+        case let .chromiumCaches(roots, _): return roots.contains(where: Self.isPersonal)
+        case let .olderVersions(dirs), let .brokenLinks(dirs): return dirs.contains(where: Self.isPersonal)
+        case .leftovers, .codexSessions, .uninstalledTools:
+            return false
+        }
+    }
+
+    static let personalFolders = ["~/Desktop", "~/Documents", "~/Downloads"]
+
+    static func isPersonal(_ path: String) -> Bool {
+        let home = FileManager.default.homeDirectoryForCurrentUser.path
+        let p = path.hasPrefix(home) ? "~" + path.dropFirst(home.count) : path
+        return personalFolders.contains { p == $0 || p.hasPrefix($0 + "/") }
+    }
+}
+
 /// 一个 AI 工具留在电脑上的痕迹：对应的 App 名字都没装时，这些路径才算残留
 public struct ToolTrace: Sendable {
     public let name: String
@@ -106,6 +131,11 @@ public struct Rule: Sendable, Identifiable {
         path.replacingOccurrences(of: FileManager.default.homeDirectoryForCurrentUser.path, with: "~")
     }
 
+    /// 简单模式只扫、只清这种：可放心清理、删了会自动重建、不用读桌面文稿下载
+    public var runsInSimpleMode: Bool {
+        safety == .safe && consequence == .rebuilt && !target.readsPersonalFolders
+    }
+
     /// 没指定 quitApps 的浏览器类缓存，或者明确要求逐项检查的规则
     var checksOwnerPerItem: Bool {
         if case .chromiumCaches = target { return quitApps.isEmpty }
@@ -141,16 +171,24 @@ public enum RuleBook {
     public static var all: [Rule] { builtIn + CustomRules.load().rules }
     public static let builtIn: [Rule] = general + aiTools
 
+    /// 苹果系统自带的缓存。大部分以 com.apple. 开头，下面这些不带前缀，但也是系统的：
+    /// iCloud 同步（CloudKit）、定位（GeoServices）、家人共享（FamilyCircle）、钱包（PassKit）等后台服务一直在用，
+    /// 它们运行时把文件夹移走可能让同步出小毛病，所以一律不碰
+    public static let appleCacheNames = [
+        "com.apple.", "Apple", "CloudKit", "GeoServices", "FamilyCircle", "familycircled", "PassKit",
+        "Metadata", "SiriTTS", "storeassetd", "akd", "ColorSync", "TemporaryItems",
+    ]
+
     static let general: [Rule] = [
         // MARK: 系统
         Rule(id: "user-caches", name: "应用缓存", category: "系统", safety: .safe,
              detail: "~/Library/Caches，各个 App 的缓存，删除后会自动重建（跳过苹果系统自带的缓存）",
-             target: .contents(of: "~/Library/Caches", excludingPrefixes: ["com.apple."]),
+             target: .contents(of: "~/Library/Caches", excludingPrefixes: appleCacheNames),
              skipsRunningApps: true),
         Rule(id: "sandbox-caches", name: "沙盒应用缓存", category: "系统", safety: .safe,
              detail: "从 App Store 安装的应用（飞书、腾讯会议等）各自的缓存目录",
              target: .contents(of: "~/Library/Containers/*/Data/Library/Caches",
-                               excludingPrefixes: ["com.apple."]),
+                               excludingPrefixes: appleCacheNames),
              skipsRunningApps: true),
         Rule(id: "user-logs", name: "应用日志", category: "系统", safety: .safe,
              detail: "~/Library/Logs，各个 App 的运行日志",

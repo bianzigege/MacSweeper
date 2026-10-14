@@ -34,3 +34,7 @@ if [ -n "${SIGN_IDENTITY:-}" ]; then
 fi
 
 echo "已生成：$(pwd)/$DMG（$(du -h "$DMG" | cut -f1)）"
+# 校验码：贴在发布页上，下载的人可以核对文件有没有被改过（终端里运行 shasum -a 256 文件名）
+SHA=$(shasum -a 256 "$DMG" | cut -d' ' -f1)
+echo "$SHA  $(basename "$DMG")" > "$DMG.sha256"
+echo "SHA-256：$SHA"

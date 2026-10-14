@@ -34,9 +34,16 @@ public struct FileDetail: Sendable {
     public let downloadedFrom: String?
     /// 最后打开时间（Spotlight 记的）；nil 表示没记录
     public let lastOpened: Date?
+    /// 在 iCloud 里（比如开了“桌面与文稿同步到 iCloud”）：移到废纸篓后，所有设备上都会一起消失
+    public var inICloud = false
 
     public static func of(_ url: URL) -> FileDetail {
-        FileDetail(kind: kind(of: url), downloadedFrom: whereFrom(url), lastOpened: lastUsed(url))
+        FileDetail(kind: kind(of: url), downloadedFrom: whereFrom(url), lastOpened: lastUsed(url),
+                   inICloud: isInICloud(url))
+    }
+
+    static func isInICloud(_ url: URL) -> Bool {
+        (try? url.resourceValues(forKeys: [.isUbiquitousItemKey]))?.isUbiquitousItem == true
     }
 
     static func kind(of url: URL) -> Kind {

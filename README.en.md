@@ -12,8 +12,8 @@
 
 ## In three sentences
 
-1. It opens in **Simple mode**: one number (how much cache can be safely cleaned) and one button (Safe Clean). It only touches caches and logs that are rebuilt automatically, skips apps that are running, and never touches chats, files or sign-ins.
-2. Everything only goes to the **Trash** and can be undone with one click. Emptying the Trash is always your own decision.
+1. It opens in **Simple mode**: one number (how much cache can be safely cleaned) and one button (Safe Clean). It only touches caches and logs that are rebuilt automatically, never looks at your Desktop, Documents or Downloads, and never touches chats, files or sign-ins. Open apps (like WeChat) are listed by size with a “Quit and Clean” button that reopens them afterwards.
+2. Everything only goes to the **Trash** and can be undone with one click. Emptying the Trash is always your own decision. Apart from a daily version check (which you can turn off), **nothing goes online, nothing is collected or uploaded**.
 3. Switch to **Detailed mode** to see every item, uninstall apps, find duplicates or view the space map. Every item says what it is, what happens if removed and how we know.
 
 ## Detailed mode
@@ -22,7 +22,7 @@
 - **Big apps**: WeChat's built-in browser cache (often tens of GB), WeChat temp files, Chrome and Electron app web caches (bookmarks, passwords and sign-ins are never touched)
 - **AI tools & projects**: grouped by tool with each tool's own icon — how much Codex, Claude, ChatCut, WorkBuddy, Qwen, DeepSeek and others use and what can be cleaned; dependencies (node_modules, .venv) of projects you haven't touched for a while; leftovers of uninstalled AI tools; broken command links
 - **Leftovers of uninstalled apps**, detected conservatively: when in doubt, it's skipped
-- **Large files** over 500 MB in your home folder, reviewed one by one
+- **Large files** over 500 MB in your home folder, reviewed one by one; files stored in iCloud are flagged because removing them affects all your devices
 - **Per-item selection**: expand any category to see each folder's size and last-modified date
 - **Running apps are protected**: their files are skipped, or use "Quit and Clean" to quit the app, clean, and reopen it
 - **Uninstall apps**: see apps you haven't used in a long time; select one and press ⌘⌫ (or right-click, or drag it into the window or onto the Dock icon) to review everything that goes with it — caches, settings, login items — before moving it all to the Trash. Undoable
@@ -43,6 +43,14 @@ Download the latest `MacSweeper-x.y.z.dmg` from [Releases](../../releases) and d
 > 2. Open System Settings → Privacy & Security, scroll down and click **Open Anyway** next to MacSweeper
 > 3. From then on it opens normally (on macOS 14 or earlier you can also right-click → Open)
 
+On the first check macOS may ask whether MacSweeper can access data from other apps; that's to find caches inside apps like WeChat and Feishu. In Detailed mode it may also ask for Desktop, Documents and Downloads to find large files. Click “Allow”; if you don't, those items are skipped. Simple mode never touches Desktop, Documents or Downloads.
+
+Every release lists the DMG's SHA-256 checksum. To verify a download, run `shasum -a 256 MacSweeper-x.y.z.dmg` in Terminal and compare.
+
+## Problems?
+
+Click **Report a Problem** in the app (bottom right of Simple mode, or on the Safety page). It opens the GitHub feedback page with the app and macOS versions filled in, and no file paths. You can also open an [issue](../../issues) directly.
+
 ## Safety
 
 **Safety you can see**: every rule carries an “if removed” label (rebuilt automatically / re-download needed / not recoverable), every category expands into an explanation card (what it is, what happens, how we know), “review first” categories must be expanded before they can be checked as a whole, non-recoverable items can only be checked one by one and are flagged in the confirmation, the first scan pre-selects nothing, large files show their type, download origin and last-opened date with a preview, and “Export list” saves what you're about to remove as a text file to share or ask about.
@@ -52,7 +60,15 @@ Download the latest `MacSweeper-x.y.z.dmg` from [Releases](../../releases) and d
 - Only files inside your home folder; protected folders (Desktop, Documents, Library…) themselves are never touched
 - Whole-app data (WeChat, Chrome, Docker, iPhone backups) is report-only; only the parts that are clearly caches can be cleaned
 - Apps that are running (GUI or command line) lock their own files, checked again at the moment of cleaning
+- App caches skip Apple's own caches: everything starting with `com.apple.` plus system caches without that prefix such as CloudKit (iCloud sync), GeoServices (location) and FamilyCircle (Family Sharing)
+- Simple mode only scans rules that are safe and rebuilt automatically, and never reads Desktop, Documents or Downloads
 - Every operation is logged in `~/Library/Logs/MacSweeper/operations.log`
+
+## Privacy
+
+- The only network access is a daily check of the latest version number on GitHub (no automatic downloads). Turn it off on the Safety page and MacSweeper never goes online
+- No usage data is collected and nothing is uploaded; all scanning happens on your Mac
+- “Report a Problem” only includes the app and macOS versions, and you submit it yourself on GitHub
 
 ## Build from source
 

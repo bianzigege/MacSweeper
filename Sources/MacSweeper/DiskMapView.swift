@@ -75,6 +75,7 @@ struct DiskMapView: View {
             Text(L("看看空间都被谁占了")).font(.title3)
             Text(L("扫描整个主目录，用色块显示每个文件夹、文件占多大。点色块可以一层层往里看。只看，不删。"))
                 .font(.callout).foregroundStyle(.secondary).multilineTextAlignment(.center).frame(maxWidth: 440)
+            PermissionHint(text: L("macOS 可能会问能不能访问桌面、文稿、下载。点“允许”就行；不允许也可以，那几个文件夹会跳过。"))
             Button { model.build() } label: { Text(L("开始扫描")).frame(minWidth: 120) }
                 .controlSize(.large).buttonStyle(.borderedProminent)
         }
