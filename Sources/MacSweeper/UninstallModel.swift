@@ -20,6 +20,8 @@ final class UninstallModel: ObservableObject {
     @Published var busyText: String?
     @Published var lastReport: CleanReport?
     @Published var lastUninstalled: String?
+    /// 最近一次卸载，App 本体有没有真的移走
+    @Published var lastBundleRemoved = true
     @Published var notice: String?
 
     var selectedApp: AppInfo? { apps.first { $0.id == selection } }
@@ -149,13 +151,17 @@ final class UninstallModel: ObservableObject {
         let selected = chosen
         self.plan = nil
         busyText = L("正在卸载 %@…", plan.app.name)
-        if plan.app.needsPassword { busyText = L("正在卸载 %@，请在弹出的窗口里输入电脑密码…", plan.app.name) }
+        if plan.app.needsPassword {
+            busyText = L("正在卸载 %@。访达会弹出窗口要你输入电脑密码；第一次还会问能不能让 MacSweeper 控制访达，点“好”", plan.app.name)
+        }
         Task {
             let report = await Task.detached(priority: .userInitiated) {
                 Uninstaller.uninstall(plan, selected: selected)
             }.value
             lastReport = report
             lastUninstalled = plan.app.name
+            // App 本体还在原处，就是没卸载成功（比如密码框点了取消），结果里要说清楚
+            lastBundleRemoved = !FileManager.default.fileExists(atPath: plan.app.url.path)
             busyText = nil
             selection = nil
             load()

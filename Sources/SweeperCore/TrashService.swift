@@ -55,17 +55,17 @@ public final class TrashSession {
             OperationLog.write("REFUSE \(url.path)")
             return nil
         }
-        guard let moved = Self.moveToTrash(url, mayPromptForPassword: target == .app) else {
-            fail(url, target == .app && Self.isOwnedByOtherUser(url)
-                 ? L("需要电脑密码，你取消了或者没有权限。可以在访达里把它拖到废纸篓")
-                 : L("没能移到废纸篓"))
-            OperationLog.write("FAIL \(url.path)")
+        let outcome = Self.moveToTrash(url, viaFinderIfNeeded: Self.needsFinder(url, target: target))
+        guard let moved = outcome.moved else {
+            fail(url, outcome.reason)
+            OperationLog.write("FAIL \(url.path)（\(outcome.reason)）")
             return nil
         }
         report.trashedCount += 1
         report.trashedBytes += bytes
         report.moves.append(TrashMove(original: url.path, inTrash: moved.path, bytes: bytes))
-        OperationLog.write("\(logTag) \(bytes) \(url.path)" + (note.isEmpty ? "" : "（\(note)）"))
+        let notes = [note, outcome.viaFinder ? L("经访达") : ""].filter { !$0.isEmpty }.joined(separator: L("，"))
+        OperationLog.write("\(logTag) \(bytes) \(url.path)" + (notes.isEmpty ? "" : "（\(notes)）"))
         return moved
     }
 
@@ -82,26 +82,33 @@ public final class TrashSession {
 
     // MARK: 底层
 
-    /// 普通文件直接移；需要权限时（mayPromptForPassword）交给系统处理，和在访达里拖到废纸篓一样，由 macOS 弹出密码框
-    static func moveToTrash(_ url: URL, mayPromptForPassword: Bool) -> URL? {
-        var inTrash: NSURL?
-        if (try? FileManager.default.trashItem(at: url, resultingItemURL: &inTrash)) != nil {
-            return inTrash as URL?
-        }
-        guard mayPromptForPassword else { return nil }
-        var result: URL?
-        let done = DispatchSemaphore(value: 0)
-        NSWorkspace.shared.recycle([url]) { moved, error in
-            if error == nil { result = moved[url] }
-            done.signal()
-        }
-        // 等你输入密码，最多 2 分钟
-        _ = done.wait(timeout: .now() + 120)
-        return result
+    struct Outcome {
+        var moved: URL?
+        var reason = ""
+        var viaFinder = false
     }
 
-    static func isOwnedByOtherUser(_ url: URL) -> Bool {
-        var st = stat()
-        return lstat(url.path, &st) == 0 && st.st_uid != getuid()
+    /// 能自己移的直接移。移不动时，App 本体和 App 的数据文件夹交给访达（viaFinderIfNeeded），
+    /// 和你在访达里手动拖到废纸篓一样：要密码时访达会弹框
+    static func moveToTrash(_ url: URL, viaFinderIfNeeded: Bool) -> Outcome {
+        var inTrash: NSURL?
+        if (try? FileManager.default.trashItem(at: url, resultingItemURL: &inTrash)) != nil, let moved = inTrash as URL? {
+            return Outcome(moved: moved)
+        }
+        guard viaFinderIfNeeded else { return Outcome(reason: L("没能移到废纸篓")) }
+        switch FinderBridge.trash(url) {
+        case let .success(moved): return Outcome(moved: moved, viaFinder: true)
+        case let .failure(why): return Outcome(reason: why.message)
+        }
+    }
+
+    /// 哪些东西 MacSweeper 自己可能移不动、要请访达帮忙：
+    /// “应用程序”里的 App（从 App Store 装的归系统管理员所有，要密码）、
+    /// App 的整个数据文件夹（~/Library/Containers/<ID>，新版 macOS 只让访达动）。
+    /// 数据文件夹里面的缓存 MacSweeper 能自己清，不走访达
+    static func needsFinder(_ url: URL, target: Target) -> Bool {
+        if target == .app { return true }
+        let parent = url.standardizedFileURL.deletingLastPathComponent().path
+        return parent == PathGuard.home + "/Library/Containers" || parent == PathGuard.home + "/Library/Group Containers"
     }
 }

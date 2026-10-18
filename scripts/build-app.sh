@@ -7,7 +7,7 @@
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
-VERSION="1.0.3"
+VERSION="1.0.4"
 APP="build/MacSweeper.app"
 
 for arch in arm64 x86_64; do
@@ -63,6 +63,7 @@ cat > "$APP/Contents/Info.plist" <<EOF
     </array>
     <key>NSDesktopFolderUsageDescription</key><string>扫描桌面上的大文件，看看哪些空间可以腾出来。</string>
     <key>NSDocumentsFolderUsageDescription</key><string>扫描文稿里的大文件，看看哪些空间可以腾出来。</string>
+    <key>NSAppleEventsUsageDescription</key><string>卸载需要电脑密码的 App（比如从 App Store 装的）、移走 App 的数据文件夹时，请访达代为移到废纸篓，和你手动拖一样。</string>
     <key>NSDownloadsFolderUsageDescription</key><string>扫描下载文件夹里的安装包和大文件。</string>
 </dict>
 </plist>

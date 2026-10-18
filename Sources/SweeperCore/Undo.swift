@@ -149,7 +149,7 @@ public enum Undo {
         for move in moves {
             let from = URL(fileURLWithPath: move.inTrash)
             let to = URL(fileURLWithPath: move.original)
-            guard from.path.contains("/.Trash/"), allowed(to) else {
+            guard from.path.contains("/.Trash/") || from.path.contains("/.Trashes/"), allowed(to) else {
                 report.failures.append((move.original, L("不在允许范围内")))
                 continue
             }
@@ -168,7 +168,20 @@ public enum Undo {
                 report.restoredBytes += move.bytes
                 OperationLog.write("RESTORE \(move.bytes) \(to.path)")
             } catch {
-                report.failures.append((move.original, error.localizedDescription))
+                // 当初是请访达移走的（要密码的 App、App 的数据文件夹），放回也请访达
+                let target: TrashSession.Target = PathGuard.isAllowedApp(to) ? .app : .file
+                guard TrashSession.needsFinder(to, target: target) else {
+                    report.failures.append((move.original, error.localizedDescription))
+                    continue
+                }
+                switch FinderBridge.putBack(from, to: to) {
+                case .success:
+                    report.restoredCount += 1
+                    report.restoredBytes += move.bytes
+                    OperationLog.write("RESTORE \(move.bytes) \(to.path)（\(L("经访达"))）")
+                case let .failure(why):
+                    report.failures.append((move.original, why.message))
+                }
             }
         }
         return report

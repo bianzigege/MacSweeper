@@ -141,7 +141,7 @@ SIGN_IDENTITY="Developer ID Application: 你的名字 (TEAMID)" NOTARY_PROFILE=m
 | 可能有你数据的（应用数据、沙盒）；按名字找到、不确定是不是它的 | 不勾 |
 | 同一厂商其他 App 还在用的共享数据；系统级后台服务 | 不会动，只告诉你 |
 
-安全措施：还装着另一份同 ID 的 App（比如 Claude 和它的旧版备份）时，只移走这一份 App 本体，缓存设置都不动；苹果自带的 App、MacSweeper 自己、你加进保护名单的 App（右键菜单）不能卸载；正在运行的要先退出；确认窗口的默认按钮是“取消”，回车和 Esc 都只会取消；勾选了超过 100MB 可能有你数据的项目会再确认一次；归系统所有的 App 由 macOS 弹出它自己的密码框；全部只移到废纸篓，可以“撤销这次卸载”。用 Homebrew 装的 App 会提示你改用 `brew uninstall`。
+安全措施：还装着另一份同 ID 的 App（比如 Claude 和它的旧版备份）时，只移走这一份 App 本体，缓存设置都不动；苹果自带的 App、MacSweeper 自己、你加进保护名单的 App（右键菜单）不能卸载；正在运行的要先退出；确认窗口的默认按钮是“取消”，回车和 Esc 都只会取消；勾选了超过 100MB 可能有你数据的项目会再确认一次；归系统所有的 App（比如从 App Store 装的）交给访达移到废纸篓，和你手动拖一样由访达弹出密码框（第一次会问能不能让 MacSweeper 控制访达）；App 的整个数据文件夹（~/Library/Containers 里）新版 macOS 只允许访达动，也交给访达；全部只移到废纸篓，可以“撤销这次卸载”。用 Homebrew 装的 App 会提示你改用 `brew uninstall`。
 
 ### 重复文件
 

@@ -75,10 +75,20 @@ struct UninstallView: View {
 
     private func resultBanner(_ r: CleanReport) -> some View {
         VStack(alignment: .leading, spacing: 6) {
-            if r.trashedCount > 0 {
+            if model.lastBundleRemoved && r.trashedCount > 0 {
                 Label(L("已卸载 %@：%ld 项（%@）移到了废纸篓", model.lastUninstalled ?? "", r.trashedCount, formatBytes(r.trashedBytes)),
                       systemImage: "checkmark.circle.fill")
                     .font(.headline).foregroundStyle(.green)
+            } else if !model.lastBundleRemoved {
+                // App 本体还在：不能说“已卸载”
+                Label(L("%@ 没有卸载成功，App 还在“应用程序”里", model.lastUninstalled ?? ""), systemImage: "exclamationmark.triangle.fill")
+                    .font(.headline).foregroundStyle(.orange)
+                if r.trashedCount > 0 {
+                    Text(L("它的 %ld 项相关文件（%@）已经移到废纸篓，可以撤销。", r.trashedCount, formatBytes(r.trashedBytes)))
+                        .font(.callout).foregroundStyle(.secondary)
+                }
+            }
+            if r.trashedCount > 0 {
                 HStack {
                     Text(L("后悔了可以撤销；确认没问题后清空废纸篓，空间才会真正释放。"))
                         .font(.callout).foregroundStyle(.secondary)

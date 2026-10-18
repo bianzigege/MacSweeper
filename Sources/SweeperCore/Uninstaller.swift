@@ -374,10 +374,11 @@ public enum Uninstaller {
 
         // 先删相关文件，最后删 App 本体：App 本体失败（比如要密码你取消了）时，其余已经在废纸篓，可以撤销
         for item in chosen.sorted(by: { $0.kind > $1.kind }) {
+            let key = item.url.standardizedFileURL.path
+            // 先记下“是我们删的”：访达移动后“应用程序”文件夹的变化可能比结果先到，免得又弹“你把 X 移到了废纸篓”的提醒
+            if item.kind == .bundle { recentLock.lock(); recent[key] = Date(); recentLock.unlock() }
             let moved = session.trash(item.url, bytes: item.bytes, target: item.kind == .bundle ? .app : .file)
-            if moved != nil && item.kind == .bundle {
-                recentLock.lock(); recent[item.url.standardizedFileURL.path] = Date(); recentLock.unlock()
-            }
+            if moved == nil && item.kind == .bundle { recentLock.lock(); recent[key] = nil; recentLock.unlock() }
         }
         return session.finish()
     }

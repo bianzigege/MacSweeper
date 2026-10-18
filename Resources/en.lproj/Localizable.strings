@@ -424,6 +424,14 @@
 "复制邮箱地址：%@" = "Copy Email Address: %@";
 "会自动带上版本号和系统版本，不带任何文件路径" = "The app and macOS versions are filled in. No file paths are included";
 "MacSweeper %@ · 反馈邮箱：%@" = "MacSweeper %@ · Feedback: %@";
+"%@ 没有卸载成功，App 还在“应用程序”里" = "%@ was not uninstalled. The app is still in Applications";
+"你在密码框里点了取消，没有移走" = "You cancelled the password prompt, so it was not moved";
+"它的 %ld 项相关文件（%@）已经移到废纸篓，可以撤销。" = "%ld related items (%@) were moved to the Trash and can be undone.";
+"正在卸载 %@。访达会弹出窗口要你输入电脑密码；第一次还会问能不能让 MacSweeper 控制访达，点“好”" = "Uninstalling %@. Finder will ask for your Mac password. The first time, macOS also asks whether MacSweeper may control Finder: click OK";
+"经访达" = "via Finder";
+"访达没能移走它" = "Finder could not move it";
+"访达没能移走它：%@" = "Finder could not move it: %@";
+"需要允许 MacSweeper 控制访达：系统设置 → 隐私与安全性 → 自动化，打开 MacSweeper 下面的“访达”，再试一次" = "Allow MacSweeper to control Finder: System Settings → Privacy & Security → Automation, turn on Finder under MacSweeper, then try again";
 "外观" = "Appearance";
 "外观：跟随系统 / 浅色 / 深色" = "Appearance: system / light / dark";
 "跟随系统" = "System";

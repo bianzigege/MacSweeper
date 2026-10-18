@@ -598,6 +598,30 @@ group("大文件：iCloud 标记") {
     check(Version.isNewer("1.0.0", than: "0.16.0"), "1.0.0 比 0.16.0 新，老用户能收到更新提醒")
 }
 
+// MARK: - 请访达代办（1.0.4）
+
+group("请访达代办：只有 App 本体和 App 的整个数据文件夹") {
+    let h = home
+    check(TrashSession.needsFinder(URL(fileURLWithPath: "/Applications/Qianwen.app"), target: .app), "App 本体交给访达（要密码时访达弹框）")
+    check(TrashSession.needsFinder(URL(fileURLWithPath: h + "/Library/Containers/com.example.app"), target: .file), "App 的整个数据文件夹交给访达")
+    check(TrashSession.needsFinder(URL(fileURLWithPath: h + "/Library/Group Containers/group.com.example"), target: .file), "共享数据文件夹交给访达")
+    check(!TrashSession.needsFinder(URL(fileURLWithPath: h + "/Library/Containers/com.example.app/Data/Library/Caches/x"), target: .file),
+          "数据文件夹里面的缓存 MacSweeper 自己清，不走访达")
+    check(!TrashSession.needsFinder(URL(fileURLWithPath: h + "/Library/Caches/com.example.app"), target: .file), "普通缓存不走访达")
+    check(!TrashSession.needsFinder(URL(fileURLWithPath: h + "/Library/Containers"), target: .file), "Containers 文件夹本身不算")
+}
+
+group("请访达代办：认出访达的回答") {
+    check(FinderBridge.failure(fromError: "36:120: execution error: User canceled. (-128)") == .cancelled, "密码框点了取消")
+    check(FinderBridge.failure(fromError: "execution error: Not authorized to send Apple events to Finder. (-1743)") == .notAllowed,
+          "没允许 MacSweeper 控制访达")
+    check(FinderBridge.failure(fromError: "12:30: execution error: Finder got an error: Can’t get alias. (-1728)")
+          == .other("Finder got an error: Can’t get alias. (-1728)"), "其他错误保留访达的原话")
+    check(FinderBridge.cleanPath("/Users/x/.Trash/Qianwen.app/\n") == "/Users/x/.Trash/Qianwen.app", "去掉访达在 App 路径末尾加的 /")
+    check(FinderBridge.cleanPath("/") == "/", "根目录不变")
+    check(!FinderBridge.Failure.notAllowed.message.isEmpty && !FinderBridge.Failure.cancelled.message.isEmpty, "每种失败都有给人看的说明")
+}
+
 // MARK: - 结果
 
 print("")
