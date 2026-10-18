@@ -73,7 +73,7 @@
 
 生成 `build/MacSweeper.app`，双击就能打开，也可以拖到“应用程序”文件夹。
 
-图标由 `scripts/make-icon.swift` 用代码绘制（青蓝渐变 + 白色硬盘 + 闪光星星）。想改颜色或造型就改这个文件，再运行 `swift scripts/make-icon.swift` 重新生成。
+图标由 `scripts/make-icon.swift` 用代码绘制：蓝底 + 白色废纸篓，篓身上镂空一个“撤销”箭头，意思是“只进废纸篓，可以撤销”。品牌只用蓝和白两种颜色。想改颜色或造型就改这个文件，再运行 `swift scripts/make-icon.swift` 重新生成。
 
 界面流程：开始扫描 → 勾选要清理的类别 → 移到废纸篓 → 确认。
 

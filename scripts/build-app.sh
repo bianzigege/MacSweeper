@@ -7,7 +7,7 @@
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
-VERSION="1.0.1"
+VERSION="1.0.2"
 APP="build/MacSweeper.app"
 
 for arch in arm64 x86_64; do

@@ -81,6 +81,8 @@ struct ContentView: View {
                     .allowsHitTesting(false)
             }
         }
+        // 按钮、勾选框等用品牌蓝，不跟着系统的强调色变
+        .tint(Brand.blue)
         .onReceive(NotificationCenter.default.publisher(for: .uninstallRequested)) { _ in takePending() }
         .onAppear { takePending() }
         .sheet(isPresented: $showingSafety) { SafetyView() }

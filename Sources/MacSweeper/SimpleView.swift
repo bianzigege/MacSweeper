@@ -61,7 +61,7 @@ struct SimpleView: View {
 
     @ViewBuilder private var readyContent: some View {
         if let report = model.lastReport, report.trashedCount > 0 {
-            Image(systemName: "checkmark.circle.fill").font(.system(size: 44)).foregroundStyle(.green)
+            Image(systemName: "checkmark.circle.fill").font(.system(size: 44)).foregroundStyle(Brand.blue)
             Text(L("已清理 %@", formatBytes(report.trashedBytes))).font(.title)
             Text(L("文件在废纸篓里，用几天没问题再清空。后悔了可以撤销。")).foregroundStyle(.secondary)
             HStack(spacing: 12) {
@@ -79,14 +79,14 @@ struct SimpleView: View {
             blockedApps
         } else if model.simpleBytes > 0 {
             Text(L("硬盘剩余 %@", formatBytes(model.freeBytes))).font(.title2)
-            (Text(L("有 ")) + Text(formatBytes(model.simpleBytes)).bold().foregroundColor(.green) + Text(L(" 是缓存和日志")))
+            (Text(L("有 ")) + Text(formatBytes(model.simpleBytes)).bold().foregroundColor(Brand.blue) + Text(L(" 是缓存和日志")))
                 .font(.title)
             Text(L("删了会自动重建，不影响聊天记录、文件、登录状态。正在使用的 App 会自动跳过。"))
                 .foregroundStyle(.secondary)
             bigButton(L("安全清理")) { confirming = true }
             blockedApps
         } else {
-            Image(systemName: "sparkles").font(.system(size: 44)).foregroundStyle(.green)
+            Image(systemName: "sparkles").font(.system(size: 44)).foregroundStyle(Brand.blue)
             Text(L("很干净，没有可放心清理的缓存")).font(.title2)
             Text(L("硬盘剩余 %@", formatBytes(model.freeBytes))).foregroundStyle(.secondary)
             blockedApps

@@ -10,9 +10,12 @@ let out = URL(fileURLWithPath: CommandLine.arguments.count > 1 ? CommandLine.arg
 try? FileManager.default.createDirectory(at: out, withIntermediateDirectories: true)
 let iconImage = NSImage(contentsOf: root.appendingPathComponent("Resources/AppIcon.png"))!
 
-let teal = Color(red: 0.33, green: 0.86, blue: 0.80)
-let blue = Color(red: 0.20, green: 0.42, blue: 0.96)
-let ink = Color(red: 0.09, green: 0.14, blue: 0.22)
+// 品牌只用两个颜色：蓝和白。文字用很深的藏青（也是蓝），浅底用带一点蓝的白
+let blue = Color(red: 0.16, green: 0.42, blue: 0.96)
+let blueLight = Color(red: 0.29, green: 0.53, blue: 0.98)
+let blueDeep = Color(red: 0.11, green: 0.33, blue: 0.86)
+let ink = Color(red: 0.05, green: 0.12, blue: 0.29)
+let paper = Color(red: 0.96, green: 0.975, blue: 1.0)
 
 struct Pill: View {
     let icon: String, text: String
@@ -31,7 +34,7 @@ struct Pill: View {
 struct Cover: View {
     var body: some View {
         ZStack {
-            LinearGradient(colors: [teal, blue], startPoint: .topLeading, endPoint: .bottomTrailing)
+            LinearGradient(colors: [blueLight, blue, blueDeep], startPoint: .top, endPoint: .bottom)
             VStack(spacing: 28) {
                 Image(nsImage: iconImage).resizable().frame(width: 260, height: 260)
                 Text("MacSweeper").font(.system(size: 72, weight: .bold)).foregroundStyle(.white)
@@ -58,7 +61,7 @@ struct Principles: View {
     ]
     var body: some View {
         ZStack {
-            Color(red: 0.96, green: 0.97, blue: 0.985)
+            paper
             VStack(alignment: .leading, spacing: 30) {
                 HStack(spacing: 16) {
                     Image(nsImage: iconImage).resizable().frame(width: 64, height: 64)
@@ -67,7 +70,7 @@ struct Principles: View {
                 ForEach(items, id: \.1) { icon, title, body in
                     HStack(alignment: .top, spacing: 24) {
                         ZStack {
-                            RoundedRectangle(cornerRadius: 18).fill(LinearGradient(colors: [teal, blue], startPoint: .topLeading, endPoint: .bottomTrailing))
+                            RoundedRectangle(cornerRadius: 18).fill(blue)
                             Image(systemName: icon).font(.system(size: 34, weight: .semibold)).foregroundStyle(.white)
                         }
                         .frame(width: 80, height: 80)
@@ -76,6 +79,7 @@ struct Principles: View {
                             Text(body).font(.system(size: 24)).foregroundStyle(ink.opacity(0.65)).fixedSize(horizontal: false, vertical: true)
                         }
                     }
+                    .frame(maxWidth: .infinity, alignment: .leading)
                     .padding(28)
                     .background(.white, in: RoundedRectangle(cornerRadius: 22))
                 }
@@ -90,13 +94,13 @@ struct Principles: View {
 struct Modes: View {
     var body: some View {
         ZStack {
-            Color(red: 0.96, green: 0.97, blue: 0.985)
+            paper
             HStack(spacing: 40) {
-                card("简单模式", "给新手", teal, [
+                card("简单模式", "给新手", filled: false, [
                     "打开就是它", "一个数字：有多少缓存可以放心清理", "一个按钮：安全清理",
                     "只碰删了会自动重建的", "开着的 App，一键退出再清理", "聊天记录、文件、登录状态一概不碰", "不收集、不上传任何东西",
                 ])
-                card("详细模式", "给想看明细的人", blue, [
+                card("详细模式", "给想看明细的人", filled: true, [
                     "每一项：这是什么 / 删了会怎样 / 我们怎么知道的", "卸载 App，连同缓存、设置、开机自启项",
                     "重复文件，逐字节比对内容", "空间地图，色块看硬盘被谁占了", "导出清单，发给懂的人或问 AI", "每一步都能撤销",
                 ])
@@ -106,22 +110,25 @@ struct Modes: View {
         .frame(width: 1600, height: 760)
     }
 
-    func card(_ title: String, _ sub: String, _ color: Color, _ lines: [String]) -> some View {
-        VStack(alignment: .leading, spacing: 18) {
-            Text(title).font(.system(size: 46, weight: .bold)).foregroundStyle(color)
-            Text(sub).font(.system(size: 26)).foregroundStyle(ink.opacity(0.6))
-            Divider().padding(.vertical, 6)
+    /// 简单模式：白底蓝字；详细模式：蓝底白字。两张卡只用蓝和白两种颜色区分
+    func card(_ title: String, _ sub: String, filled: Bool, _ lines: [String]) -> some View {
+        let main: Color = filled ? .white : blue
+        let text: Color = filled ? .white : ink
+        return VStack(alignment: .leading, spacing: 18) {
+            Text(title).font(.system(size: 46, weight: .bold)).foregroundStyle(main)
+            Text(sub).font(.system(size: 26)).foregroundStyle(text.opacity(0.7))
+            Rectangle().fill(text.opacity(0.18)).frame(height: 1).padding(.vertical, 6)
             ForEach(lines, id: \.self) { line in
                 HStack(alignment: .top, spacing: 12) {
-                    Image(systemName: "checkmark.circle.fill").font(.system(size: 24)).foregroundStyle(color)
-                    Text(line).font(.system(size: 25)).foregroundStyle(ink).fixedSize(horizontal: false, vertical: true)
+                    Image(systemName: "checkmark.circle.fill").font(.system(size: 24)).foregroundStyle(main)
+                    Text(line).font(.system(size: 25)).foregroundStyle(text).fixedSize(horizontal: false, vertical: true)
                 }
             }
             Spacer()
         }
         .padding(44)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-        .background(.white, in: RoundedRectangle(cornerRadius: 28))
+        .background(filled ? blue : .white, in: RoundedRectangle(cornerRadius: 28))
     }
 }
 
