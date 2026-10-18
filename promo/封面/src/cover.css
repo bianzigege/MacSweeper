@@ -1,0 +1,23 @@
+:root { --blue:#296BF5; --blue-l:#4A87FA; --blue-d:#1C54DB; --ink:#0D1F4A; --paper:#F5F9FF; }
+* { margin:0; padding:0; box-sizing:border-box; }
+html, body { width:100%; height:100%; }
+body { font-family:"PingFang SC", -apple-system, sans-serif; color:#fff; overflow:hidden;
+  background: radial-gradient(120% 90% at 20% 15%, #16316E 0%, #0D1F4A 45%, #050F2A 100%); position:relative; }
+.num { font-family:"SF Pro Display", -apple-system, sans-serif; font-weight:800; letter-spacing:-6px; line-height:.9; }
+.num small { font-size:.42em; letter-spacing:0; color:var(--blue-l); margin-left:10px; }
+.title { font-weight:800; letter-spacing:2px; }
+.sub { color:#C9D8F5; font-weight:500; }
+.bars { display:flex; flex-direction:column; gap:12px; }
+.row { display:flex; align-items:center; gap:14px; }
+.row .lab { width:120px; color:#C9D8F5; font-size:22px; font-weight:500; }
+.track { flex:1; height:46px; display:flex; border-radius:10px; overflow:hidden; }
+.seg { display:flex; align-items:center; padding-left:12px; font-weight:700; font-size:20px; color:#fff; }
+.s1 { background:var(--blue-l); } .s2 { background:var(--blue); } .s3 { background:var(--blue-d); }
+.rest { background: repeating-linear-gradient(135deg, #2A3E72 0 10px, #1B2C58 10px 20px); border-radius:10px; height:46px; }
+.row .v { width:120px; text-align:right; font-weight:700; font-size:24px; }
+.brand { display:flex; align-items:center; gap:18px; }
+.brand img { border-radius:22%; }
+.brand b { font-size:30px; font-weight:700; letter-spacing:1px; }
+.brand span { display:block; font-size:18px; color:#C9D8F5; font-weight:500; margin-top:4px; }
+.face { position:absolute; border-radius:50%; border:6px solid #fff; box-shadow:0 0 0 6px rgba(41,107,245,.55); }
+.en { color:#8FA7D6; font-weight:500; letter-spacing:.5px; }
