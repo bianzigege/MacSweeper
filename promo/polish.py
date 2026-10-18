@@ -168,7 +168,7 @@ PlayResY: {H}
 
 [V4+ Styles]
 Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding
-Style: Default,PingFang SC,48,&H00FFFFFF,&H00FFFFFF,&H5A25100A,&H5A25100A,1,0,0,0,100,100,0,0,3,9,0,2,460,120,40,1
+Style: Default,PingFang SC,48,&H00FFFFFF,&H00FFFFFF,&H5A25100A,&H5A25100A,1,0,0,0,100,100,0,0,3,9,0,2,450,450,40,1
 
 [Events]
 Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
