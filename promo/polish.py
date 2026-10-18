@@ -160,8 +160,10 @@ def render_intro():
     subprocess.run(["node", str(RENDER), str(INTRO_HTML), str(wav), str(raw), "--fps", str(FPS), "--size", f"{W}x{H}"],
                    check=True, env={**__import__("os").environ, "NODE_PATH": subprocess.run(["npm", "root", "-g"], capture_output=True, text=True).stdout.strip()})
     out = B / "seg-intro.mp4"
-    run(["ffmpeg", "-y", "-loglevel", "error", "-i", str(raw), "-c:v", "libx264", "-preset", "medium", "-crf", "19", "-r", str(FPS),
-         "-pix_fmt", "yuv420p", "-c:a", "aac", "-b:a", "192k", "-ar", "48000", str(out)])
+    # 逐帧截图拼出来的是全色域（yuvj420p），要转成和正片一样的 yuv420p，否则拼起来 QuickTime 和手机打不开
+    run(["ffmpeg", "-y", "-loglevel", "error", "-i", str(raw), "-vf", "scale=in_range=full:out_range=tv,format=yuv420p",
+         "-c:v", "libx264", "-preset", "medium", "-crf", "19", "-r", str(FPS), "-color_range", "tv",
+         "-c:a", "aac", "-b:a", "192k", "-ar", "48000", str(out)])
     return out
 
 
@@ -231,12 +233,13 @@ def main():
     fontsdir = str(Path(FONT).parent)
     run(["ffmpeg", "-y", "-loglevel", "error", "-i", str(joined),
          "-vf", f"subtitles='{ass}':fontsdir='{fontsdir}'",
-         "-af", "loudnorm=I=-16:TP=-1.5:LRA=11",
-         "-c:v", "libx264", "-preset", "medium", "-crf", "19", "-c:a", "aac", "-b:a", "192k", "-movflags", "+faststart",
+         "-af", "loudnorm=I=-16:TP=-1.5:LRA=11,aresample=48000",
+         "-c:v", "libx264", "-preset", "medium", "-crf", "19", "-pix_fmt", "yuv420p", "-color_range", "tv",
+         "-c:a", "aac", "-b:a", "192k", "-ar", "48000", "-movflags", "+faststart",
          str(OUT / f"{name}.mp4")])
     # 不烧字幕的版本，给想在平台上挂外挂字幕的
-    run(["ffmpeg", "-y", "-loglevel", "error", "-i", str(joined), "-af", "loudnorm=I=-16:TP=-1.5:LRA=11",
-         "-c:v", "copy", "-c:a", "aac", "-b:a", "192k", "-movflags", "+faststart", str(OUT / f"{name}-无字幕.mp4")])
+    run(["ffmpeg", "-y", "-loglevel", "error", "-i", str(joined), "-af", "loudnorm=I=-16:TP=-1.5:LRA=11,aresample=48000",
+         "-c:v", "copy", "-c:a", "aac", "-b:a", "192k", "-ar", "48000", "-movflags", "+faststart", str(OUT / f"{name}-无字幕.mp4")])
     print(f"成片 {t:.1f} 秒 → {OUT / name}.mp4")
 
 
