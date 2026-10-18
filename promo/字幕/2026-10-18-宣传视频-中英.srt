@@ -1,0 +1,259 @@
+1
+00:00:00,000 --> 00:00:05,916
+最近辫子用 Mac 电脑快一年了
+I've been using a Mac for almost a year now
+
+2
+00:00:05,966 --> 00:00:12,255
+发现 Mac 的空间特别容易被占满
+and I've noticed its storage fills up fast
+
+3
+00:00:12,305 --> 00:00:17,103
+尤其是 AI 工具多了以后
+especially now that I use so many AI tools
+
+4
+00:00:17,153 --> 00:00:21,950
+像飞书、Chrome 这些
+apps like Feishu and Chrome
+
+5
+00:00:23,000 --> 00:00:30,075
+用 Mac 的朋友有没有遇到过这种情况
+Have you run into this on your Mac?
+
+6
+00:00:30,125 --> 00:00:34,950
+缓存特别多，但不知道怎么清
+Tons of cache, and no idea how to clear it
+
+7
+00:00:35,000 --> 00:00:38,863
+缓存多、不知道怎么清
+Lots of cache, no idea how to clean it
+
+8
+00:00:38,913 --> 00:00:43,950
+我觉得这是 Mac 的通病
+I think every Mac user has this problem
+
+9
+00:00:45,000 --> 00:00:48,617
+好像也没有合适的工具
+There didn't seem to be a good tool for it
+
+10
+00:00:48,667 --> 00:00:53,750
+所以我自己做了一个，已经开源
+so I built one myself, and it's open source
+
+11
+00:00:53,800 --> 00:00:55,950
+地址放在结尾
+the link is at the end
+
+12
+00:00:56,000 --> 00:00:59,950
+我用它扫了一下自己的电脑
+I scanned my own Mac with it
+
+13
+00:01:00,000 --> 00:01:06,950
+缓存最多的三样是飞书、Chrome 和微信
+the three biggest caches: Feishu, Chrome and WeChat
+
+14
+00:01:07,000 --> 00:01:10,950
+硬盘剩下的空间已经不到 80G 了
+I have less than 80 GB of free space left
+
+15
+00:01:12,000 --> 00:01:17,188
+它们其实都不是聊天记录
+None of it is chat history
+
+16
+00:01:17,238 --> 00:01:21,950
+只是存在电脑上的缓存
+it's just cache stored on my Mac
+
+17
+00:01:22,000 --> 00:01:26,950
+存了从来不删，就越积越多
+It's saved and never removed, so it keeps piling up
+
+18
+00:01:28,000 --> 00:01:32,617
+于是我做了一个工具，叫 MacSweeper
+So I made a tool called MacSweeper
+
+19
+00:01:32,667 --> 00:01:34,950
+一个 Mac 清理工具
+a cleaner for Mac
+
+20
+00:01:35,000 --> 00:01:38,053
+它从来不直接删除东西
+It never deletes anything directly
+
+21
+00:01:38,103 --> 00:01:43,950
+因为大家用 Mac，图的就是安全、简单
+because people choose a Mac for being safe and simple
+
+22
+00:01:44,000 --> 00:01:47,450
+Mac 没有自带垃圾清理工具
+macOS doesn't come with a junk cleaner
+
+23
+00:01:47,500 --> 00:01:51,950
+我设计的时候，也不希望它直接帮我删掉
+and I didn't want mine deleting things for me
+
+24
+00:01:52,000 --> 00:01:55,888
+我觉得这是 AI 时代需要防范的一点
+I think this is something to guard against in the AI era
+
+25
+00:01:55,938 --> 00:01:58,950
+AI 很聪明，随时可以帮你删
+AI is smart enough to delete things for you anytime
+
+26
+00:01:59,000 --> 00:02:03,950
+但我恰恰不能让它随时帮我删
+and that's exactly what I don't want it to do
+
+27
+00:02:04,000 --> 00:02:08,394
+它会先把要清理的内容放进废纸篓
+It moves everything to the Trash first
+
+28
+00:02:08,444 --> 00:02:11,950
+你觉得没问题，再自己清空
+and you empty it only when you're sure
+
+29
+00:02:12,000 --> 00:02:19,632
+现在市面上找不到这样的工具
+I couldn't find a tool like this
+
+30
+00:02:19,682 --> 00:02:24,950
+所以我自己做了一个
+so I made one myself
+
+31
+00:02:25,000 --> 00:02:28,790
+大家可以看一下，我设计了两个模式
+As you can see, there are two modes
+
+32
+00:02:28,840 --> 00:02:30,950
+简单模式和详细模式
+Simple Mode and Detailed Mode
+
+33
+00:02:31,000 --> 00:02:37,950
+简单模式适合新手，打开就能用
+Simple Mode is for beginners: open it and go
+
+34
+00:02:38,000 --> 00:02:41,200
+详细模式里每一项都有说明卡
+Detailed Mode has an info card for every item
+
+35
+00:02:41,250 --> 00:02:45,950
+卸载 App 时会连同缓存和设置一起清
+uninstalling an app removes its caches and settings too
+
+36
+00:02:46,000 --> 00:02:49,950
+还有空间地图，用色块看谁占了空间
+and the Space Map shows what's taking up room
+
+37
+00:02:51,000 --> 00:02:54,998
+我还专门做了 AI 工具这一项
+I also added a section just for AI tools
+
+38
+00:02:55,048 --> 00:03:00,934
+比如我主要用的 Claude 和 Codex
+like Claude and Codex, which I use most
+
+39
+00:03:00,984 --> 00:03:03,633
+它们留下了很多旧对话
+they leave behind lots of old conversations
+
+40
+00:03:03,683 --> 00:03:07,950
+现在看已经没那么重要，也可以清掉
+many don't matter anymore and can be cleared
+
+41
+00:03:09,000 --> 00:03:14,247
+这个工具不联网，不是流氓软件
+It doesn't go online, and it's not shady software
+
+42
+00:03:14,297 --> 00:03:18,409
+免费开源，MIT 协议
+free and open source, MIT licensed
+
+43
+00:03:18,459 --> 00:03:25,599
+Apple 芯片和 Intel 都能用
+works on Apple silicon and Intel
+
+44
+00:03:25,649 --> 00:03:32,788
+后面我还会继续更新，支持浅色和深色模式
+I'll keep improving it; it has light and dark mode
+
+45
+00:03:32,838 --> 00:03:36,950
+大家可以在这个网站下载
+you can download it from this site
+
+46
+00:03:37,000 --> 00:03:42,436
+我还没买苹果开发者签名，之后会买
+I haven't bought an Apple developer certificate yet, but I will
+
+47
+00:03:42,486 --> 00:03:48,950
+现在下载的话，第一次打开要先点“完成”
+for now, click “Done” the first time you open it
+
+48
+00:03:49,000 --> 00:03:55,426
+关于这个项目有任何问题，欢迎私信我
+Any questions, feel free to DM me
+
+49
+00:03:55,476 --> 00:04:01,140
+也欢迎在 GitHub 上留言
+or leave a comment on GitHub
+
+50
+00:04:01,190 --> 00:04:06,855
+我是辫子，在泰国曼谷做 MCN
+I'm Bianzi, I work at an MCN in Bangkok, Thailand
+
+51
+00:04:06,905 --> 00:04:11,426
+一直在 AI 项目上投入
+and I keep building AI projects
+
+52
+00:04:11,476 --> 00:04:12,950
+感谢观看
+thanks for watching
