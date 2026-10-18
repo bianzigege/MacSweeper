@@ -25,6 +25,17 @@ BASE = f"scale={W}:-2,crop={W}:{H}:0:31,setsar=1"
 # 左下角圆形头像在 1920 画面里的位置
 BUB_X, BUB_Y, BUB_R = 238, 874, 201
 
+# 片头：promo/intro/index.html 逐帧渲染（13.5 秒），旁白是原片里用户自己说的两句
+INTRO_HTML = ROOT / "promo/intro/index.html"
+INTRO_DUR = 14.7
+INTRO_VOICE = [(28.15, 35.00, 2.6), (41.65, 44.35, 9.8)]   # (原片起, 原片止, 放在片头第几秒)
+INTRO_CUES = [
+    (2.6, 5.85, "不知道大家用 Mac 电脑，有没有遇到过这样的情况", "Have you ever run into this on your Mac?"),
+    (5.85, 9.45, "就是缓存特别多，但是不知道怎么去清除", "Tons of cache, and no idea how to clear it"),
+    (9.8, 12.5, "我觉得这是 Mac 电脑的一个通病", "I think it's a common problem on Macs"),
+]
+RENDER = Path.home() / "Documents/Codex/AI 博主/tools/render_animation.mjs"
+
 # 保留哪些段（原片秒数）、怎么处理。顺序就是成片顺序。
 SEGMENTS = [
     # 钩子：扫了一下，三样缓存，剩不到 80G —— 推近到 82GB 条形图
@@ -131,6 +142,29 @@ def render_segment(i, seg):
     return out, dur
 
 
+def render_intro():
+    """片头：先拼声音（两句原声 + 提示音 + 转场音），再逐帧渲染动画，最后转成和正片一样的编码。"""
+    wav = B / "intro.wav"
+    ins, flt, labs = [], [], []
+    for i, (a, b, at) in enumerate(INTRO_VOICE):
+        ins += ["-ss", f"{a:.2f}", "-t", f"{b - a:.2f}", "-i", str(SRC)]
+        flt.append(f"[{i}:a]aresample=48000,pan=stereo|c0=c0|c1=c0,afade=t=in:d=0.03,afade=t=out:st={b - a - 0.08:.2f}:d=0.08,adelay={int(at * 1000)}|{int(at * 1000)}[v{i}]")
+        labs.append(f"[v{i}]")
+    # 存储提醒「叮」一声（1.8 秒）和切到品牌的轻微转场音（11.0 秒）
+    flt.append("aevalsrc='0.22*(sin(2*PI*880*t)+0.6*sin(2*PI*1320*t))*exp(-6*t)':d=0.7:s=48000,pan=stereo|c0=c0|c1=c0,adelay=1800|1800[ding]")
+    flt.append("anoisesrc=d=0.5:c=pink:a=0.25:r=48000,highpass=f=900,lowpass=f=5000,afade=t=in:d=0.25,afade=t=out:st=0.25:d=0.25,pan=stereo|c0=c0|c1=c0,adelay=12300|12300[sw]")
+    labs += ["[ding]", "[sw]"]
+    flt.append(f"{''.join(labs)}amix=inputs={len(labs)}:normalize=0,apad=whole_dur={INTRO_DUR}[a]")
+    run(["ffmpeg", "-y", "-loglevel", "error", *ins, "-filter_complex", ";".join(flt), "-map", "[a]", "-t", str(INTRO_DUR), str(wav)])
+    raw = B / "intro-raw.mp4"
+    subprocess.run(["node", str(RENDER), str(INTRO_HTML), str(wav), str(raw), "--fps", str(FPS), "--size", f"{W}x{H}"],
+                   check=True, env={**__import__("os").environ, "NODE_PATH": subprocess.run(["npm", "root", "-g"], capture_output=True, text=True).stdout.strip()})
+    out = B / "seg-intro.mp4"
+    run(["ffmpeg", "-y", "-loglevel", "error", "-i", str(raw), "-c:v", "libx264", "-preset", "medium", "-crf", "19", "-r", str(FPS),
+         "-pix_fmt", "yuv420p", "-c:a", "aac", "-b:a", "192k", "-ar", "48000", str(out)])
+    return out
+
+
 def parse_srt(p):
     cues = []
     for block in p.read_text().strip().split("\n\n"):
@@ -149,7 +183,7 @@ def ts(t, ass=False):
 
 
 def remap_subs(offsets):
-    cues, out = parse_srt(SRT_IN), []
+    cues, out = parse_srt(SRT_IN), [c for c in INTRO_CUES]
     for (s0, s1), base in offsets:
         for a, b, zh, en in cues:
             mid = (a + b) / 2
@@ -181,7 +215,8 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
 def main():
     OUT.mkdir(parents=True, exist_ok=True)
     make_assets()
-    segs, offsets, t = [], [], 0.0
+    segs, offsets, t = [render_intro()], [], INTRO_DUR
+    print(f"片头 0–{INTRO_DUR}s")
     for i, seg in enumerate(SEGMENTS):
         path, dur = render_segment(i, seg)
         segs.append(path)

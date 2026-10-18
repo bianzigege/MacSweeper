@@ -1,0 +1,166 @@
+<!doctype html>
+<html lang="zh">
+<head>
+<meta charset="utf-8">
+<title>MacSweeper 片头</title>
+<!--
+  14.7 秒片头，1920×1080。所有画面由时间 t 算出来（不用 CSS 动画），逐帧截图才确定：
+  ?render=1 时提供 window.__ready / window.__seek(t) / window.__duration。直接打开就自动播放预览。
+  旁白是用户原片里的两句（见 promo/polish.py 的 INTRO_VOICE），画面跟着这两句的时间点走。
+  界面全是示意：不仿 macOS 和任何 App 的真实界面、不用别家 logo。
+-->
+<style>
+  :root { --blue:#296BF5; --blue-l:#4A87FA; --blue-d:#1C54DB; --ink:#0D1F4A; --red:#F0524D; --orange:#F5A524; }
+  * { margin:0; padding:0; box-sizing:border-box; }
+  html, body { width:1920px; height:1080px; overflow:hidden; }
+  body { font-family:"PingFang SC", -apple-system, sans-serif; color:#fff;
+    background: radial-gradient(110% 90% at 30% 20%, #16316E 0%, #0D1F4A 45%, #050F2A 100%); }
+  .abs { position:absolute; }
+  .zh { font-weight:800; letter-spacing:1px; }
+  .en { color:#9FB4DE; font-weight:500; }
+
+  /* 场景 A：存储空间条 */
+  #disk { left:410px; top:380px; width:1100px; }
+  #disk .lab { display:flex; justify-content:space-between; font-size:30px; color:#C9D8F5; margin-bottom:18px; }
+  #disk .track { height:64px; border-radius:16px; background:#1B2C58; overflow:hidden; }
+  #disk .fill { height:100%; border-radius:16px; }
+  #alert { left:560px; top:520px; width:800px; padding:34px 40px; border-radius:24px; background:#F5F8FF; color:#0D1F4A;
+    display:flex; gap:28px; align-items:center; box-shadow:0 30px 80px rgba(0,0,0,.45); }
+  #alert .ico { width:84px; height:84px; flex:none; }
+  #alert b { display:block; font-size:42px; }
+  #alert span { display:block; font-size:24px; color:#4B5E86; margin-top:6px; }
+
+  /* 场景 B：三块缓存 + AI 工具 */
+  .blk { left:300px; width:0; height:92px; border-radius:18px; display:flex; align-items:center; padding:0 30px;
+    font-size:38px; font-weight:800; white-space:nowrap; overflow:hidden; }
+  .blk small { font-size:24px; font-weight:500; color:rgba(255,255,255,.85); margin-left:18px; }
+  #sum { left:1450px; top:250px; text-align:right; }
+  #sum .n { font-size:150px; font-weight:800; letter-spacing:-4px; line-height:1; }
+  #sum .n i { font-style:normal; font-size:62px; color:var(--blue-l); margin-left:6px; }
+  #sum .c { font-size:28px; color:#C9D8F5; margin-top:8px; }
+  #ai { left:300px; top:690px; display:flex; gap:20px; align-items:center; }
+  #ai .t { font-size:30px; color:#C9D8F5; margin-right:8px; }
+  .chip { padding:16px 28px; border-radius:999px; border:2px solid rgba(74,135,250,.75); background:rgba(41,107,245,.18);
+    font-size:30px; font-weight:700; white-space:nowrap; }
+  .chip em { font-style:normal; font-size:22px; color:#9FB4DE; font-weight:500; margin-left:10px; }
+  #q { left:0; width:1920px; top:430px; text-align:center; }
+  #q .zh { font-size:96px; }
+  #q .en { font-size:34px; margin-top:12px; }
+
+  /* 场景 C：系统不会帮你清 */
+  #sys { left:0; width:1920px; top:380px; text-align:center; }
+  #sys .zh { font-size:84px; line-height:1.25; }
+  #sys .zh span { color:var(--blue-l); }
+  #sys .en { font-size:36px; margin-top:22px; }
+
+  /* 场景 D：MacSweeper */
+  #icon { left:810px; top:250px; width:300px; height:300px; border-radius:22%; }
+  #brand { left:0; width:1920px; top:600px; text-align:center; }
+  #brand .zh { font-size:96px; letter-spacing:2px; }
+  #brand .sub { font-size:44px; font-weight:700; color:#DCE6FA; margin-top:10px; }
+  #brand .en { font-size:30px; margin-top:12px; }
+  #flash { left:0; top:0; width:1920px; height:1080px; background:#fff; }
+</style>
+</head>
+<body>
+  <!-- A -->
+  <div id="disk" class="abs">
+    <div class="lab"><span>存储空间 · Storage</span><span id="pct"></span></div>
+    <div class="track"><div class="fill" id="fill"></div></div>
+  </div>
+  <div id="alert" class="abs">
+    <svg class="ico" viewBox="0 0 84 84"><circle cx="42" cy="42" r="40" fill="#F5A524"/><rect x="38" y="18" width="8" height="34" rx="4" fill="#fff"/><circle cx="42" cy="63" r="5" fill="#fff"/></svg>
+    <div><b>存储空间快满了</b><span>Your disk is almost full · 示意</span></div>
+  </div>
+
+  <!-- B -->
+  <div id="b1" class="abs blk" style="top:250px;background:var(--blue-l)">飞书 34 GB<small>内置浏览器缓存</small></div>
+  <div id="b2" class="abs blk" style="top:362px;background:var(--blue)">Chrome 26 GB<small>网页缓存</small></div>
+  <div id="b3" class="abs blk" style="top:474px;background:var(--blue-d)">微信 22 GB<small>内置浏览器缓存</small></div>
+  <div id="sum" class="abs"><div class="n">82<i>GB</i></div><div class="c">全是缓存，不是聊天记录</div></div>
+  <div id="ai" class="abs">
+    <span class="t">还有 AI 工具</span>
+    <span class="chip">Claude<em>旧对话</em></span>
+    <span class="chip">Codex<em>缓存</em></span>
+    <span class="chip">ChatCut<em>素材</em></span>
+    <span class="chip">项目依赖<em>node_modules</em></span>
+  </div>
+  <div id="q" class="abs"><div class="zh">怎么清？</div><div class="en">How do I even clean this up?</div></div>
+
+  <!-- C -->
+  <div id="sys" class="abs">
+    <div class="zh">系统不会帮你清<br><span>App 里的这些缓存</span></div>
+    <div class="en">macOS won't clear the caches inside these apps</div>
+  </div>
+
+  <!-- D -->
+  <img id="icon" class="abs" src="../../Resources/AppIcon.png">
+  <div id="brand" class="abs">
+    <div class="zh">MacSweeper</div>
+    <div class="sub">只进废纸篓 · 一键撤销</div>
+    <div class="en">Everything goes to the Trash. One-click undo.</div>
+  </div>
+  <div id="flash" class="abs"></div>
+
+<script>
+const DUR = 14.7;
+const $ = (id) => document.getElementById(id);
+const clamp = (x, a = 0, b = 1) => Math.min(b, Math.max(a, x));
+const ease = (x) => { x = clamp(x); return x < .5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2; };
+const back = (x) => { x = clamp(x); const c = 1.6; return 1 + (c + 1) * Math.pow(x - 1, 3) + c * Math.pow(x - 1, 2); };
+const span = (t, a, b) => clamp((t - a) / (b - a));          // a→b 之间 0→1
+const win = (t, a, b, fi = .35, fo = .35) => Math.min(span(t, a, a + fi), 1 - span(t, b - fo, b));  // 淡入淡出窗口
+const set = (el, o) => { for (const k in o) el.style[k] = o[k]; };
+const mix = (c1, c2, k) => c1.map((v, i) => Math.round(v + (c2[i] - v) * k));
+
+function seek(t) {
+  // A 0–6.0：存储条涨满变红（0.2–1.7），1.8 秒弹提醒；旁白 2.6 秒起问「有没有遇到过这样的情况」
+  const aOn = win(t, 0, 6.0, .3, .4);
+  const f = ease(span(t, .2, 1.7)), pct = 42 + 55 * f;
+  const col = pct < 70 ? mix([74, 135, 250], [245, 165, 36], (pct - 42) / 28) : mix([245, 165, 36], [240, 82, 77], (pct - 70) / 27);
+  set($("disk"), { opacity: aOn, transform: `translateY(${-60 * ease(span(t, 1.7, 2.2))}px)` });
+  set($("fill"), { width: pct + "%", background: `rgb(${col})` });
+  $("pct").textContent = `已用 ${Math.round(pct)}%`;
+  const al = back(span(t, 1.8, 2.25));
+  set($("alert"), { opacity: Math.min(clamp((t - 1.8) / .15), 1 - span(t, 5.6, 6.0)), transform: `translateY(${80 - 80 * al}px) scale(${.9 + .1 * al})` });
+
+  // B 6.3–9.9：「缓存特别多」时三块缓存依次冲出来，合计 82GB，再冒出 AI 工具；「不知道怎么去清除」时打问号
+  const bOn = 1 - span(t, 9.4, 9.9), dim = 1 - .88 * span(t, 8.1, 8.4);
+  [["b1", 6.3, 760], ["b2", 6.55, 580], ["b3", 6.8, 490]].forEach(([id, a, w]) => {
+    const k = ease(span(t, a, a + .45));
+    set($(id), { width: w * k + "px", opacity: clamp(k * 3) * bOn * dim });
+  });
+  const s = back(span(t, 7.15, 7.55));
+  set($("sum"), { opacity: clamp((t - 7.15) / .2) * bOn * dim, transform: `scale(${.85 + .15 * s})`, transformOrigin: "right top" });
+  [...$("ai").children].forEach((el, i) => {
+    const k = back(span(t, 7.5 + i * .12, 7.9 + i * .12));
+    set(el, { opacity: clamp(k * 2) * bOn * dim, transform: `translateY(${30 - 30 * k}px)` });
+  });
+  const q = back(span(t, 8.1, 8.5));
+  set($("q"), { opacity: clamp((t - 8.1) / .2) * bOn, transform: `scale(${.8 + .2 * q})` });
+
+  // C 9.8–12.45：「我觉得这是 Mac 电脑的一个通病」
+  const c = win(t, 9.8, 12.45, .4, .35);
+  set($("sys"), { opacity: c, transform: `translateY(${24 - 24 * ease(span(t, 9.8, 10.3))}px)` });
+
+  // D 12.4–14.7：图标弹出 + 名字，最后 0.3 秒白闪切进正片
+  const ic = back(span(t, 12.4, 12.95));
+  set($("icon"), { opacity: clamp((t - 12.4) / .15), transform: `scale(${.4 + .6 * ic}) rotate(${(1 - ic) * -12}deg)` });
+  const br = ease(span(t, 12.8, 13.3));
+  set($("brand"), { opacity: br, transform: `translateY(${30 - 30 * br}px)` });
+  set($("flash"), { opacity: .9 * span(t, 14.4, 14.7) });
+}
+
+const fonts = document.fonts ? document.fonts.ready : Promise.resolve();
+const imgs = Promise.all([...document.images].map((im) => im.complete ? 0 : new Promise((r) => { im.onload = im.onerror = r; })));
+window.__duration = DUR;
+window.__ready = Promise.all([fonts, imgs]).then(() => { seek(0); return true; });
+window.__seek = seek;
+if (!location.search.includes("render=1")) {
+  const t0 = performance.now();
+  const loop = () => { seek(((performance.now() - t0) / 1000) % (DUR + 1)); requestAnimationFrame(loop); };
+  loop();
+}
+</script>
+</body>
+</html>
