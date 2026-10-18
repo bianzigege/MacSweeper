@@ -84,16 +84,27 @@ struct CollapsibleHeader<Content: View>: View {
 struct ConsequenceBadge: View {
     let consequence: Consequence
 
+    /// 只用品牌蓝，靠深浅和图标分轻重：
+    /// 会自动重建 = 浅蓝底；要重新下载 = 蓝色描边；找不回来 = 实心蓝底白字，最醒目
     var body: some View {
-        let (text, color): (String, Color) = switch consequence {
-        case .rebuilt: ("会自动重建", .green)
-        case .redownload: ("要重新下载", .orange)
-        case .lost: ("找不回来", .red)
+        let shape = RoundedRectangle(cornerRadius: 4)
+        HStack(spacing: 3) {
+            Image(systemName: Self.icon(consequence))
+            Text(Self.shortText(consequence))
         }
-        Text(L(text))
-            .font(.caption2.weight(.medium)).foregroundStyle(color)
-            .padding(.horizontal, 5).padding(.vertical, 1)
-            .background(color.opacity(0.12), in: RoundedRectangle(cornerRadius: 4))
+        .font(.caption2.weight(consequence == .lost ? .bold : .medium))
+        .foregroundStyle(consequence == .lost ? Color.white : Brand.blue)
+        .padding(.horizontal, 5).padding(.vertical, 1)
+        .background(consequence == .lost ? Brand.solid : consequence == .rebuilt ? Brand.blue.opacity(0.12) : .clear, in: shape)
+        .overlay(shape.strokeBorder(Brand.blue.opacity(consequence == .redownload ? 0.7 : 0), lineWidth: 1))
+    }
+
+    static func icon(_ c: Consequence) -> String {
+        switch c {
+        case .rebuilt: return "arrow.triangle.2.circlepath"
+        case .redownload: return "arrow.down.circle"
+        case .lost: return "exclamationmark.triangle.fill"
+        }
     }
 
     static func shortText(_ c: Consequence) -> String {
@@ -291,7 +302,14 @@ struct FeedbackMenu: View {
 }
 
 /// 品牌色：只用蓝和白两种。和图标、海报、分享页是同一个蓝。
-/// 表示安全等级的绿（可放心清理）、橙（需确认）、红（找不回来）是提示，不算品牌色，保持不变
+/// “删了会怎样”三个标签也只用这个蓝，靠深浅区分轻重（见 ConsequenceBadge）
 enum Brand {
-    static let blue = Color(red: 0.16, green: 0.42, blue: 0.96)
+    /// 文字、按钮、勾选框用的蓝：深色模式下亮一点，看得清
+    static let blue = Color(nsColor: NSColor(name: nil) { look in
+        look.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
+            ? NSColor(srgbRed: 0.36, green: 0.58, blue: 1.0, alpha: 1)
+            : NSColor(srgbRed: 0.16, green: 0.42, blue: 0.96, alpha: 1)
+    })
+    /// 实心蓝底（上面放白字）用的蓝，深浅模式都一样，保证白字清楚
+    static let solid = Color(red: 0.16, green: 0.42, blue: 0.96)
 }
