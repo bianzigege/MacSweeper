@@ -200,3 +200,11 @@ public enum DuplicateCleaner {
         return session.finish()
     }
 }
+
+extension DuplicateGroup {
+    /// 去掉已经移走的文件（按原来的位置）。剩不到两份就不算重复了，返回 nil
+    public func removing(_ paths: Set<String>) -> DuplicateGroup? {
+        let left = files.filter { !paths.contains($0.url.path) }
+        return left.count >= 2 ? DuplicateGroup(size: size, files: left) : nil
+    }
+}

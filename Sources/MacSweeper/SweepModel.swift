@@ -49,7 +49,56 @@ final class SweepModel: ObservableObject {
         UserDefaults.standard.string(forKey: "mode") == "detailed" ? .full : .simple
     }
 
-    init() { refreshFreeSpace() }
+    /// MacSweeper 移到废纸篓、现在还在废纸篓里的东西一共多大（你清空废纸篓后变成 0）
+    @Published var pendingTrashBytes: Int64 = 0
+    private var ticker: Timer?
+
+    init() {
+        refreshFreeSpace()
+        refreshTrash()
+        // 硬盘剩余空间、废纸篓、能不能撤销，这些会在 MacSweeper 外面变（比如你在访达里清空了废纸篓），
+        // 所以切回窗口时、别的页面移完东西后、平时每 15 秒，都重新看一眼
+        NotificationCenter.default.addObserver(forName: NSApplication.didBecomeActiveNotification, object: nil, queue: .main) { [weak self] _ in
+            MainActor.assumeIsolated { self?.refreshDiskStatus(full: true) }
+        }
+        NotificationCenter.default.addObserver(forName: .trashChanged, object: nil, queue: .main) { [weak self] _ in
+            MainActor.assumeIsolated { self?.refreshDiskStatus(full: true) }
+        }
+        ticker = Timer.scheduledTimer(withTimeInterval: 15, repeats: true) { [weak self] _ in
+            MainActor.assumeIsolated { self?.refreshDiskStatus(full: false) }
+        }
+    }
+
+    /// full 为 false 时只看剩余空间和自己移过去的文件还在不在（很快）；为 true 时连废纸篓总大小一起算
+    func refreshDiskStatus(full: Bool) {
+        refreshFreeSpace()
+        if full { refreshTrash() } else { refreshPending() }
+    }
+
+    private func refreshPending() {
+        Task {
+            let (history, pending) = await Task.detached(priority: .utility) { () -> ([TrashBatch], Int64) in
+                let h = Undo.history()
+                return (h, Undo.pendingTrashBytes(in: h))
+            }.value
+            if history.map(\.id) != undoHistory.map(\.id) { undoHistory = history }
+            if pending != pendingTrashBytes { pendingTrashBytes = pending }
+        }
+    }
+
+    /// 废纸篓里还占着多少：读得到废纸篓就用实际大小，读不到就用 MacSweeper 自己移过去、还在的那些。不到 1MB 不提
+    var trashInUse: Int64 {
+        let bytes = max(trashBytes ?? 0, pendingTrashBytes)
+        return bytes >= 1_000_000 ? bytes : 0
+    }
+
+    /// 完成卡片上的一句话：硬盘现在剩多少，废纸篓里还有多少、清空后大约多少
+    var spaceLine: String {
+        let inTrash = trashInUse
+        guard inTrash > 0 else { return L("硬盘现在剩 %@。", formatBytes(freeBytes)) }
+        return L("硬盘现在剩 %@。废纸篓里还有 %@，清空废纸篓后约 %@。", formatBytes(freeBytes), formatBytes(inTrash),
+                 formatBytes(freeBytes + inTrash))
+    }
 
     /// 普通规则（不属于某个 AI 工具），按安全等级分组
     func results(for safety: Safety) -> [ScanResult] {
@@ -86,6 +135,7 @@ final class SweepModel: ObservableObject {
 
     func refreshTrash() {
         undoHistory = Undo.history()
+        refreshPending()
         Task {
             let trash = FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent(".Trash")
             trashBytes = await Task.detached(priority: .utility) { () -> Int64? in
@@ -400,7 +450,7 @@ final class SweepModel: ObservableObject {
         if selected.contains(url) { selected.remove(url) } else { selected.insert(url) }
     }
 
-    private func refreshFreeSpace() {
+    func refreshFreeSpace() {
         let home = FileManager.default.homeDirectoryForCurrentUser
         let v = try? home.resourceValues(forKeys: [.volumeAvailableCapacityForImportantUsageKey])
         freeBytes = v?.volumeAvailableCapacityForImportantUsage ?? 0

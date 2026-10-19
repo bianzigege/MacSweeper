@@ -159,6 +159,7 @@ final class UninstallModel: ObservableObject {
                 Uninstaller.uninstall(plan, selected: selected)
             }.value
             lastReport = report
+            NotificationCenter.default.post(name: .trashChanged, object: nil)
             lastUninstalled = plan.app.name
             // App 本体还在原处，就是没卸载成功（比如密码框点了取消），结果里要说清楚
             lastBundleRemoved = !FileManager.default.fileExists(atPath: plan.app.url.path)
@@ -175,6 +176,7 @@ final class UninstallModel: ObservableObject {
         busyText = L("正在把 %@ 放回原处…", lastUninstalled ?? "")
         Task {
             let r = await Task.detached(priority: .userInitiated) { Undo.restore(id: id) }.value
+            NotificationCenter.default.post(name: .trashChanged, object: nil)
             busyText = nil
             lastReport = nil
             if let r {

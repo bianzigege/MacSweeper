@@ -62,8 +62,9 @@ struct SimpleView: View {
     @ViewBuilder private var readyContent: some View {
         if let report = model.lastReport, report.trashedCount > 0 {
             Image(systemName: "checkmark.circle.fill").font(.system(size: 44)).foregroundStyle(Brand.blue)
-            Text(L("已清理 %@", formatBytes(report.trashedBytes))).font(.title)
-            Text(L("文件在废纸篓里，用几天没问题再清空。后悔了可以撤销。")).foregroundStyle(.secondary)
+            Text(L("已移到废纸篓 %@", formatBytes(report.trashedBytes))).font(.title)
+            Text(model.spaceLine).foregroundStyle(.secondary)
+            Text(L("用几天没问题再清空废纸篓。后悔了可以撤销。")).font(.callout).foregroundStyle(.secondary)
             HStack(spacing: 12) {
                 if let batch = model.undoHistory.first(where: { $0.id == report.batchID }) {
                     Button(L("撤销")) { model.undo(batch) }

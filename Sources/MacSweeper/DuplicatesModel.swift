@@ -67,7 +67,10 @@ final class DuplicatesModel: ObservableObject {
             lastReport = report
             selected.removeAll()
             busyText = nil
-            scan()
+            // 不用重新扫一遍全盘（要好一阵）：把已经移走的文件从列表里去掉，结果马上能看到
+            let moved = Set(report.moves.map(\.original))
+            groups = groups.compactMap { $0.removing(moved) }
+            NotificationCenter.default.post(name: .trashChanged, object: nil)
         }
     }
 
@@ -79,6 +82,7 @@ final class DuplicatesModel: ObservableObject {
             lastReport = nil
             busyText = nil
             if let r { notice = L("已放回 %ld 项（%@）", r.restoredCount, formatBytes(r.restoredBytes)) }
+            NotificationCenter.default.post(name: .trashChanged, object: nil)
             scan()
         }
     }

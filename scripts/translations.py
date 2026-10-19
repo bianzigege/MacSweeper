@@ -557,6 +557,17 @@ EN = {
     "需要允许 MacSweeper 控制访达：系统设置 → 隐私与安全性 → 自动化，打开 MacSweeper 下面的“访达”，再试一次":
         "Allow MacSweeper to control Finder: System Settings → Privacy & Security → Automation, turn on Finder under MacSweeper, then try again",
 
+    # —— 1.0.5：做完说清楚、空间随时刷新 ——
+    "MacSweeper 移到废纸篓的 %@ 还占着空间，确认电脑正常后清空废纸篓才会释放":
+        "%@ moved to the Trash by MacSweeper still takes up space. Empty the Trash once everything works to free it",
+    "已将 %ld 个重复文件（%@）移到废纸篓": "Moved %ld duplicate files (%@) to the Trash",
+    "已移到废纸篓 %@": "Moved %@ to the Trash",
+    "正在重新统计剩下的…": "Recounting what's left…",
+    "用几天没问题再清空废纸篓。后悔了可以撤销。": "Empty the Trash after a few days if everything works. You can undo until then.",
+    "硬盘现在剩 %@。": "%@ free on your disk now.",
+    "硬盘现在剩 %@。废纸篓里还有 %@，清空废纸篓后约 %@。": "%@ free on your disk now. The Trash holds %@; after emptying it you'll have about %@.",
+    "还有 %ld 项没能移走": "%ld more items could not be moved",
+
     # —— 外观 ——
     "外观": "Appearance",
     "外观：跟随系统 / 浅色 / 深色": "Appearance: system / light / dark",

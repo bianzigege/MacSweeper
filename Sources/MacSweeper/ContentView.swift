@@ -236,6 +236,14 @@ struct ContentView: View {
 
     private var scanningView: some View {
         VStack(spacing: 12) {
+            // 刚清理完、正在重新统计：先把结果摆出来，不用等扫完才知道清没清完
+            if let report = model.lastReport, report.trashedCount > 0 {
+                DoneCard(title: L("已将 %ld 个项目（%@）移到废纸篓", report.trashedCount, formatBytes(report.trashedBytes)),
+                         failures: report.failures)
+                    .frame(maxWidth: 560)
+                    .padding(.bottom, 16)
+                Text(L("正在重新统计剩下的…")).font(.callout).foregroundStyle(.secondary)
+            }
             if model.progress.total > 0 {
                 ProgressView(value: Double(model.progress.done), total: Double(model.progress.total))
                     .frame(width: 320)

@@ -5,6 +5,7 @@ import SweeperCore
 /// “重复文件”页面：一组一组列出内容完全一样的文件，默认一个都不勾，每组至少留一份
 struct DuplicatesView: View {
     @EnvironmentObject var model: DuplicatesModel
+    @EnvironmentObject var disk: SweepModel
     @State private var confirming = false
 
     var body: some View {
@@ -73,16 +74,10 @@ struct DuplicatesView: View {
                 Label(notice, systemImage: "info.circle.fill").font(.callout).foregroundStyle(.orange)
             }
             if let r = model.lastReport, r.trashedCount > 0 {
-                HStack {
-                    Label(L("已将 %ld 个重复文件移到废纸篓，腾出 %@", r.trashedCount, formatBytes(r.trashedBytes)),
-                          systemImage: "checkmark.circle.fill").foregroundStyle(.green)
-                    Spacer()
-                    Button(L("撤销")) { model.undo() }
-                }
-                ForEach(Array(r.failures.prefix(5).enumerated()), id: \.offset) { _, f in
-                    Text("· " + f.reason + "：" + f.path.replacingOccurrences(of: NSHomeDirectory(), with: "~"))
-                        .font(.caption).foregroundStyle(.orange)
-                }
+                DoneCard(title: L("已将 %ld 个重复文件（%@）移到废纸篓", r.trashedCount, formatBytes(r.trashedBytes)),
+                         failures: r.failures,
+                         onUndo: disk.undoHistory.contains { $0.id == r.batchID } ? { model.undo() } : nil)
+                    .listRowSeparator(.hidden)
             }
             if model.groups.isEmpty {
                 Text(L("没有找到重复文件")).foregroundStyle(.secondary).padding(.vertical, 20)

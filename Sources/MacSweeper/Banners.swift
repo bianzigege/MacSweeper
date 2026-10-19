@@ -5,18 +5,12 @@ import SweeperCore
 /// 结果列表顶部的几块：总览、清理/撤销结果、重新打开 App、权限提醒
 extension ContentView {
     func reportBanner(_ report: CleanReport) -> some View {
-        VStack(alignment: .leading, spacing: 4) {
-            Label(L("已将 %ld 个项目（%@）移到废纸篓", report.trashedCount, formatBytes(report.trashedBytes)),
-                  systemImage: "checkmark.circle.fill")
-                .font(.headline).foregroundStyle(.green)
-            Text("确认电脑一切正常后，清空废纸篓才会真正释放空间。")
-                .font(.callout).foregroundStyle(.secondary)
-            if !report.failures.isEmpty {
-                Text(L("有 %ld 个项目没能移动（通常是正在被使用），可以退出相关 App 后再试。", report.failures.count))
-                    .font(.callout).foregroundStyle(.orange)
-            }
-        }
-        .padding(.vertical, 6)
+        let batch = model.undoHistory.first { $0.id == report.batchID }
+        return DoneCard(title: L("已将 %ld 个项目（%@）移到废纸篓", report.trashedCount, formatBytes(report.trashedBytes)),
+                        failures: report.failures,
+                        onUndo: batch.map { b in { model.undoCandidate = b; confirmingUndo = true } })
+            .padding(.vertical, 6)
+            .listRowSeparator(.hidden)
     }
 
     /// 顶部总览：能腾出多少、废纸篓还有多少、上次清理能不能撤销
@@ -27,9 +21,9 @@ extension ContentView {
                 summaryNumber("需确认", model.reviewBytes, .orange)
                 summaryNumber("要先退出 App", model.lockedBytes, .secondary)
             }
-            if let trash = model.trashBytes, trash > 0 {
+            if model.trashInUse > 0 {
                 HStack {
-                    Label(L("废纸篓里还有 %@，清空后空间才会真正释放", formatBytes(trash)), systemImage: "trash")
+                    Label(L("废纸篓里还有 %@，清空后空间才会真正释放", formatBytes(model.trashInUse)), systemImage: "trash")
                         .font(.callout)
                     Spacer()
                     Button("打开废纸篓") {
@@ -37,9 +31,6 @@ extension ContentView {
                             .appendingPathComponent(".Trash"))
                     }
                 }
-            } else if model.trashBytes == nil, !model.undoHistory.isEmpty {
-                Label("清理的文件还在废纸篓里，确认电脑正常后记得清空，空间才会真正释放", systemImage: "trash")
-                    .font(.callout)
             }
             if !model.undoHistory.isEmpty {
                 VStack(alignment: .leading, spacing: 6) {

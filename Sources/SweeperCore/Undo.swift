@@ -125,6 +125,14 @@ public enum Undo {
     /// 最近一次还能撤销的记录
     public static func lastBatch() -> TrashBatch? { history().first }
 
+    /// MacSweeper 移到废纸篓、现在还在废纸篓里的东西一共多大。
+    /// 只看自己移过去的文件在不在，不用“完全磁盘访问权限”也能算；你清空废纸篓后就变成 0
+    public static func pendingTrashBytes(in batches: [TrashBatch]? = nil) -> Int64 {
+        (batches ?? history()).reduce(0) { sum, batch in
+            sum + batch.moves.filter { FileManager.default.fileExists(atPath: $0.inTrash) }.reduce(0) { $0 + $1.bytes }
+        }
+    }
+
     /// 撤销某一条，完成后从历史里去掉
     public static func restore(id: UUID) -> UndoReport? {
         guard let batch = history().first(where: { $0.id == id }) else { return nil }

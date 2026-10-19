@@ -622,6 +622,28 @@ group("请访达代办：认出访达的回答") {
     check(!FinderBridge.Failure.notAllowed.message.isEmpty && !FinderBridge.Failure.cancelled.message.isEmpty, "每种失败都有给人看的说明")
 }
 
+// MARK: - 做完说清楚（1.0.5）
+
+group("重复文件：移走后直接从列表里去掉，不用重扫") {
+    let a = makeFile("dup/a.mov", bytes: 100), b = makeFile("dup/b.mov", bytes: 100), c = makeFile("dup/c.mov", bytes: 100)
+    func f(_ u: URL) -> DuplicateGroup.File { DuplicateGroup.File(url: u, modified: Date(), contentID: nil) }
+    let g = DuplicateGroup(size: 100, files: [f(a), f(b), f(c)])
+    check(g.removing([a.path])?.files.map(\.url) == [b, c], "三份移走一份，还剩两份，仍是一组")
+    check(g.removing([a.path, b.path]) == nil, "只剩一份就不算重复了")
+    check(g.removing([])?.files.count == 3, "什么都没移走，原样不变")
+}
+
+group("废纸篓里还有多少：只算自己移过去、现在还在的") {
+    let stillThere = makeFile("trash-check/还在.mov", bytes: 10)
+    let gone = sandbox.appendingPathComponent("trash-check/已清空.mov")
+    let batch = TrashBatch(kind: .clean, title: "t", moves: [
+        TrashMove(original: "/x/1", inTrash: stillThere.path, bytes: 100),
+        TrashMove(original: "/x/2", inTrash: gone.path, bytes: 200),
+    ])
+    check(Undo.pendingTrashBytes(in: [batch]) == 100, "清空了的不算，还在的算（实际：\(Undo.pendingTrashBytes(in: [batch]))）")
+    check(Undo.pendingTrashBytes(in: []) == 0, "没有记录就是 0")
+}
+
 // MARK: - 结果
 
 print("")

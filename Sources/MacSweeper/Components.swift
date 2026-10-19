@@ -313,3 +313,43 @@ enum Brand {
     /// 实心蓝底（上面放白字）用的蓝，深浅模式都一样，保证白字清楚
     static let solid = Color(red: 0.16, green: 0.42, blue: 0.96)
 }
+
+extension Notification.Name {
+    /// 有东西移进或移出了废纸篓（卸载、重复文件、撤销），让顶部的剩余空间和撤销记录马上刷新
+    static let trashChanged = Notification.Name("MacSweeperTrashChanged")
+}
+
+/// 做完以后的完成卡片，三个页面共用：移了多少、硬盘现在剩多少、清空废纸篓后大约多少；可以撤销、打开废纸篓
+struct DoneCard: View {
+    @EnvironmentObject var disk: SweepModel
+    let title: String
+    var failures: [(path: String, reason: String)] = []
+    /// 还能撤销时才给按钮（废纸篓清空后就撤销不了了）
+    var onUndo: (() -> Void)?
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Label(title, systemImage: "checkmark.circle.fill")
+                .font(.headline).foregroundStyle(Brand.blue)
+            Text(disk.spaceLine).font(.callout).foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+            HStack(spacing: 10) {
+                if let onUndo { Button(L("撤销"), action: onUndo) }
+                Button(L("打开废纸篓")) {
+                    NSWorkspace.shared.open(FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent(".Trash"))
+                }
+            }
+            ForEach(Array(failures.prefix(5).enumerated()), id: \.offset) { _, f in
+                Text("· " + f.reason + "：" + f.path.replacingOccurrences(of: NSHomeDirectory(), with: "~"))
+                    .font(.caption).foregroundStyle(.orange).fixedSize(horizontal: false, vertical: true)
+            }
+            if failures.count > 5 {
+                Text(L("还有 %ld 项没能移走", failures.count - 5)).font(.caption).foregroundStyle(.orange)
+            }
+        }
+        .padding(14)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(Brand.blue.opacity(0.08), in: RoundedRectangle(cornerRadius: 10))
+        .overlay(RoundedRectangle(cornerRadius: 10).strokeBorder(Brand.blue.opacity(0.35)))
+    }
+}
